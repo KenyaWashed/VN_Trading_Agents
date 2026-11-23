@@ -12,6 +12,7 @@ from vn_rsi.data import SnapshotManager, build_provider, load_market_rules
 from vn_rsi.eval import SealedEvaluator, paired_bootstrap_ci, run_all_baselines
 from vn_rsi.llm import build_llm_backend
 from vn_rsi.rsi import BiLevelRSIRunner
+from vn_rsi.sandbox import SealedTestReuseError
 from vn_rsi.utils import (
     RunLogger,
     compute_config_hash,
@@ -115,15 +116,18 @@ def main() -> None:
         sealed_rsi_metrics = {"note": "identical_to_v0_no_rewrite_accepted"}
         sealed_ci_vs_eq = {}
     else:
-        sealed_rsi_out = evaluator.evaluate_factor_ensemble(
-            specs=best_entry.representative_specs,
-            weights=best_entry.representative_weights,
-            zone="sealed_test",
-            candidate_id="rsi_vstar_frozen_best",
-            run_id="phase4_rsi",
-            allow_sealed=True,
-        )
-        sealed_rsi_metrics = sealed_rsi_out.metrics
+        try:
+            sealed_rsi_out = evaluator.evaluate_factor_ensemble(
+                specs=best_entry.representative_specs,
+                weights=best_entry.representative_weights,
+                zone="sealed_test",
+                candidate_id="rsi_vstar_frozen_best",
+                run_id="phase4_rsi",
+                allow_sealed=True,
+            )
+            sealed_rsi_metrics = sealed_rsi_out.metrics
+        except SealedTestReuseError:
+            sealed_rsi_metrics = {"note": "ensemble_hash_already_scored_in_phase3"}
         eq_test = evaluator.evaluate_signal_matrix(
             signal_wide=evaluator.feature_panel["close"] * 0.0 + 1.0,
             zone="validation",

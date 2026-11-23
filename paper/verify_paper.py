@@ -46,14 +46,28 @@ def main() -> None:
     if missing_citations:
         raise SystemExit(f"Citation check FAILED! Unresolved citation keys: {missing_citations}")
 
-    # Load logged run IDs
-    logged_runs: dict[str, str] = {}
+    # Load logged run IDs and recursively extract all numeric values per run_id
+    def _collect_floats(node: object, out: list[float]) -> None:
+        if isinstance(node, bool):
+            return
+        if isinstance(node, int | float):
+            out.append(float(node))
+        elif isinstance(node, dict):
+            for val in node.values():
+                _collect_floats(val, out)
+        elif isinstance(node, list):
+            for item in node:
+                _collect_floats(item, out)
+
+    logged_floats: dict[str, list[float]] = {}
     with reg_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
                 obj = json.loads(line)
-                logged_runs[str(obj["run_id"])] = line
+                vals: list[float] = []
+                _collect_floats(obj, vals)
+                logged_floats[str(obj["run_id"])] = vals
 
     prov = json.loads(prov_path.read_text(encoding="utf-8"))
     cells = prov.get("cells", [])
@@ -72,15 +86,14 @@ def main() -> None:
 
     for cell in cells:
         rid = str(cell["run_id"])
-        if rid not in logged_runs:
+        if rid not in logged_floats:
             raise SystemExit(f"Provenance check FAILED: run_id '{rid}' not found in experiment_registry.jsonl")
         fmt_val = str(cell["formatted"])
         if fmt_val not in tables_concat:
             raise SystemExit(f"Provenance check FAILED: formatted value '{fmt_val}' missing from generated .tex tables")
-        # Verify raw number rounded matches logged JSON payload
-        raw_str = f"{float(cell['raw']):.3f}"[:5]
-        if raw_str not in logged_runs[rid] and str(round(float(cell["raw"]), 4)) not in logged_runs[rid]:
-            raise SystemExit(f"Provenance mismatch between cell {cell} and log {rid}")
+        raw_num = float(cell["raw"])
+        if not any(abs(raw_num - v) <= 1e-6 for v in logged_floats[rid]):
+            raise SystemExit(f"Provenance mismatch between cell {cell} and parsed numeric log {rid}")
 
     print(
         json.dumps(

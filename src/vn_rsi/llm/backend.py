@@ -251,10 +251,11 @@ class RuleGuidedSmallLMBackend(LLMBackend):
             except Exception:
                 ctx = {}
 
+        has_err = "[SCHEMA/VERIFIER ERROR" in user_prompt
         if title == "FalsifiableHypothesis":
             out = self._propose_hypothesis(ctx, rng, temperature)
         elif title == "FactorSpec":
-            out = self._propose_factor_ast(ctx, rng, temperature)
+            out = self._propose_factor_ast(ctx, rng, temperature, has_err=has_err)
         elif title == "GenomePatchProposal":
             out = self._propose_genome_patch(ctx, rng, temperature)
         else:
@@ -318,13 +319,13 @@ class RuleGuidedSmallLMBackend(LLMBackend):
         }
 
     def _propose_factor_ast(
-        self, ctx: dict[str, Any], rng: np.random.Generator, temperature: float
+        self, ctx: dict[str, Any], rng: np.random.Generator, temperature: float, has_err: bool = False
     ) -> dict[str, Any]:
         family = str(ctx.get("family", "momentum_liquidity"))
         hyp_id = str(ctx.get("hypothesis_id", "hyp_0"))
         factor_id = str(ctx.get("factor_id", f"fac_{hyp_id}"))
         windows: list[int] = [int(w) for w in ctx.get("preferred_windows", [5, 10, 20])]
-        max_depth = int(ctx.get("max_depth", 3))
+        max_depth = 2 if has_err else int(ctx.get("max_depth", 3))
         w_short = min(windows) if windows else 5
         w_med = sorted(windows)[len(windows) // 2] if windows else 15
         w_long = max(windows) if windows else 20
@@ -354,7 +355,7 @@ class RuleGuidedSmallLMBackend(LLMBackend):
                 }
         elif family == "reversal_microstructure":
             w_rev = min(5, w_short)
-            if max_depth >= 3 and variant_roll > 0.30:
+            if max_depth >= 4 and variant_roll > 0.30:
                 root = {
                     "node_type": "op",
                     "name": "neg",
@@ -363,7 +364,7 @@ class RuleGuidedSmallLMBackend(LLMBackend):
                             "node_type": "op",
                             "name": "mul",
                             "args": [
-                                {"node_type": "op", "name": "ts_return", "window": max(3, w_rev - 1), "args": [{"node_type": "terminal", "name": "close"}]},
+                                {"node_type": "op", "name": "ts_return", "window": max(3, w_rev), "args": [{"node_type": "terminal", "name": "close"}]},
                                 {"node_type": "terminal", "name": "turnover_shock_20d"},
                             ],
                         }
@@ -374,7 +375,7 @@ class RuleGuidedSmallLMBackend(LLMBackend):
                     "node_type": "op",
                     "name": "neg",
                     "args": [
-                        {"node_type": "op", "name": "ts_return", "window": w_rev, "args": [{"node_type": "terminal", "name": "close"}]}
+                        {"node_type": "op", "name": "ts_return", "window": max(3, w_rev), "args": [{"node_type": "terminal", "name": "close"}]}
                     ],
                 }
         elif family == "value_quality_pit":
@@ -411,8 +412,8 @@ class RuleGuidedSmallLMBackend(LLMBackend):
                     "args": [{"node_type": "terminal", "name": "foreign_net_ratio"}],
                 }
 
-        # Occasional noisy depth-4 candidate when temperature is high to exercise auditor/verifier
-        if temperature > 0.60 and rng.random() < 0.20:
+        # Occasional noisy wrapper when temperature is high (will be repaired via schema retry if exceeding max_depth)
+        if not has_err and temperature > 0.60 and rng.random() < 0.20:
             root = {"node_type": "op", "name": "tanh_squash", "args": [root]}
 
         return {
