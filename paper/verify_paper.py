@@ -80,7 +80,7 @@ def main() -> None:
         tables_concat += "\n" + content
         # Every data row must carry a % run_id= comment
         for ln in content.splitlines():
-            if "\\\\" in ln and "Method &" not in ln and "Ablation Variant &" not in ln:
+            if "\\\\" in ln and "Method &" not in ln and "Ablation Variant &" not in ln and "Model / System &" not in ln:
                 if "% run_id=" not in ln:
                     raise SystemExit(f"Table line missing '% run_id=' provenance link: {ln}")
 

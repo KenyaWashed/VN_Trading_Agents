@@ -527,6 +527,166 @@
       "formatted": "1.961",
       "raw": 1.96073,
       "run_id": "phase4_rsi"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "DeepSeek-R1-671B",
+      "col": "val_rank_ic",
+      "formatted": "0.1213",
+      "raw": 0.1213,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "DeepSeek-R1-671B",
+      "col": "val_sharpe",
+      "formatted": "1.023",
+      "raw": 1.0234,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_rank_ic",
+      "formatted": "0.0975",
+      "raw": 0.0975,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_sharpe",
+      "formatted": "1.061",
+      "raw": 1.0611,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_dsr",
+      "formatted": "0.312",
+      "raw": 0.3125,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "val_rank_ic",
+      "formatted": "0.0829",
+      "raw": 0.08295,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "val_sharpe",
+      "formatted": "0.469",
+      "raw": 0.4688,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_rank_ic",
+      "formatted": "0.0968",
+      "raw": 0.09681,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_sharpe",
+      "formatted": "1.138",
+      "raw": 1.1384,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_dsr",
+      "formatted": "0.583",
+      "raw": 0.5831,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "val_rank_ic",
+      "formatted": "0.1111",
+      "raw": 0.11113,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "val_sharpe",
+      "formatted": "1.068",
+      "raw": 1.068,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_rank_ic",
+      "formatted": "0.0977",
+      "raw": 0.09772,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_sharpe",
+      "formatted": "1.015",
+      "raw": 1.0154,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_dsr",
+      "formatted": "0.374",
+      "raw": 0.3742,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "mave_q_champion",
+      "col": "val_rank_ic",
+      "formatted": "0.1062",
+      "raw": 0.10616,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "mave_q_champion",
+      "col": "val_sharpe",
+      "formatted": "1.281",
+      "raw": 1.2814,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "mave_q_champion",
+      "col": "test_rank_ic",
+      "formatted": "0.0715",
+      "raw": 0.0715,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "mave_q_champion",
+      "col": "test_sharpe",
+      "formatted": "1.137",
+      "raw": 1.137,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "frontier_combat",
+      "row": "mave_q_champion",
+      "col": "test_dsr",
+      "formatted": "0.133",
+      "raw": 0.1333,
+      "run_id": "phase5_frontier_combat"
     }
   ]
 }

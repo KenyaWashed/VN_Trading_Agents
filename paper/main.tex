@@ -31,15 +31,17 @@ Following \citet{guo2026aqua}, agents emit constrained specifications while huma
   \item \textbf{Realistic Execution}: Long-only 100-share board-lot orders respect T+2.5 holding locks, unfillable ceiling buys and floor sells, 15 bps brokerage commission, 10 bps statutory sell tax, and square-root ADV participation impact.
 \end{itemize}
 
-\section{MAVE-Q Bi-Level Modular Architecture for $\le$8B and Sub-10M Models}
-In the \textbf{inner loop}, seven specialized roles (Planner, DataSteward, IdeaMiner, Implementer, LeakageAuditor, EvaluatorProxy, Librarian) formulate falsifiable hypotheses before generating JSON-schema constrained \texttt{FactorSpec} trees, retaining compositional verified discoveries \citep{wang2023voyager} in a compact epistemic belief store with decay and contradiction penalties. In the \textbf{outer loop}, a meta-proposer samples parent genomes from an open-ended archive \citep{zhang2025dgm,lange2025shinkaevolve} and proposes bounded edits strictly within a declared mutable surface, gated by paired multi-seed validation improvements \citep{srikanth2026aide2}.
+\section{MAVE-Q Bi-Level Modular Architecture for $\le$8B and Sub-200M Specialist Models}
+In the \textbf{inner loop}, seven specialized roles (Planner, DataSteward, IdeaMiner, Implementer, LeakageAuditor, EvaluatorProxy, Librarian) formulate falsifiable hypotheses before generating JSON-schema constrained \texttt{FactorSpec} trees, retaining compositional verified discoveries \citep{wang2023voyager} in a compact epistemic belief store with decay and contradiction penalties. Beyond monolithic $\le$8B loops, our modular specialist core decomposes structural search into (i) a \textbf{Discrete Masked AST Diffusion} synthesizer trained with critic-free \texttt{diffu-GRPO} \citep{shao2024grpo,zhao2025d1} on orthogonal marginal rewards and (ii) a \textbf{Hierarchical Recursive Reasoner} \citep{wang2025hrm,jolicoeur2025trm} performing slow regime planning ($z_H$) and fast latent Best-of-$K$ pruning ($z_L$). In the \textbf{outer loop}, a meta-proposer samples parent genomes from an open-ended archive \citep{zhang2025dgm,lange2025shinkaevolve} and proposes bounded edits strictly within a declared mutable surface, gated by paired multi-seed validation improvements \citep{srikanth2026aide2}.
 
-\section{Experimental Results and Ablations}
-Tables~\ref{tab:main_results} and~\ref{tab:rsi_ablations} are auto-generated directly from \texttt{logs/experiment\_registry.jsonl} via \texttt{experiments/build\_report.py}.
+\section{Experimental Results, Ablations, and Frontier Combat Arena}
+Tables~\ref{tab:main_results}, \ref{tab:rsi_ablations}, and~\ref{tab:frontier_combat} are auto-generated directly from \texttt{logs/experiment\_registry.jsonl} via \texttt{experiments/build\_report.py}.
 
 \input{tables/main_results.tex}
 
 \input{tables/rsi_ablations.tex}
+
+\input{tables/frontier_combat.tex}
 
 \section{Limitations and Ethical Safeguards}
 \begin{enumerate}

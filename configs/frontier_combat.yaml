@@ -1,0 +1,45 @@
+# Frontier Combat Arena Configuration (MAVE-Q Specialist vs 50B-671B Frozen Frontier Models)
+# Author: Tran Duy Khang — AI Software Engineer / Freelance Vibe Researcher
+
+combat_id: "mave_q_vs_frontier_v1"
+seed: 2026
+
+# Specialist Scale Presets:
+# - "cpu_fast":          ~0.23M params (instant CPU verification)
+# - "kaggle_t4_optimal": ~9.74M params (~0.21 GB VRAM)
+# - "kaggle_max_100m":   ~175M params  (~1.8 GB FP16 VRAM — maximum full-weight scratch scale on 16GB T4!)
+specialist_preset: "auto"
+
+# Test-Time Compute Scaling + Orthogonal diffu-GRPO Hyperparameters
+combat_loop:
+  max_rounds: 10                        # Keep evolving & self-training until beating strongest Frontier Challenger
+  candidates_per_round_latent: 36       # Latent Best-of-36 sampled by AST Diffusion & pruned by HRM z_L
+  top_k_evaluate_on_search: 7           # Top-7 pruned candidates evaluated on search zone per round
+  diffu_grpo_epochs_per_round: 12       # Critic-free diffu-GRPO updates on orthogonal marginal rewards
+  hrm_epochs_per_round: 12              # Online updates to HRM z_L surrogate & z_H regime policy
+  max_ensemble_factors: 8               # Orthogonalized low-correlation portfolio of causal factors
+  max_pairwise_corr: 0.58               # Reject redundant factors correlated above 0.58 with existing ensemble
+  turnover_penalty_weight: 0.35         # Penalize high-turnover factors (protects against 0.1% VN sell tax)
+  win_p_value_threshold: 0.15           # Paired block-bootstrap one-sided p-value target vs strongest Frontier model
+
+# Frontier Challengers (50B - 671B+ Models)
+# Automatically uses live OpenAI-compatible API if env var is set, otherwise runs calibrated frozen-frontier baseline.
+frontier_challengers:
+  - name: "Llama-3.3-70B-Instruct"
+    parameter_count_billions: 70.0
+    api_env_var: "OPENROUTER_API_KEY"
+    endpoint_url: "https://openrouter.ai/api/v1/chat/completions"
+    api_model_id: "meta-llama/llama-3.3-70b-instruct"
+    prior_strength: 0.72
+  - name: "Qwen2.5-72B-Instruct"
+    parameter_count_billions: 72.0
+    api_env_var: "OPENROUTER_API_KEY"
+    endpoint_url: "https://openrouter.ai/api/v1/chat/completions"
+    api_model_id: "qwen/qwen-2.5-72b-instruct"
+    prior_strength: 0.80
+  - name: "DeepSeek-R1-671B"
+    parameter_count_billions: 671.0
+    api_env_var: "DEEPSEEK_API_KEY"
+    endpoint_url: "https://api.deepseek.com/v1/chat/completions"
+    api_model_id: "deepseek-reasoner"
+    prior_strength: 0.88

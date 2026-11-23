@@ -35,7 +35,7 @@ except Exception:
 
 @dataclass
 class HRMConfig:
-    preset: str = "cpu_fast"  # "cpu_fast" (~90K) | "kaggle_t4_optimal" (~6.8M)
+    preset: str = "cpu_fast"  # "cpu_fast" (~0.12M) | "kaggle_t4_optimal" (~3.38M) | "kaggle_max_100m" (~78M)
     d_hidden: int = 64
     n_high_steps: int = 3
     n_low_steps: int = 4
@@ -43,10 +43,24 @@ class HRMConfig:
     regime_dim: int = 12  # 4 steward market stats + 4 family confidences + 4 family mean ICs
     max_seq_len: int = 16
     learning_rate: float = 1e-3
+    use_amp_fp16: bool = False
     seed: int = 42
 
     @classmethod
     def from_preset(cls, preset: str, seed: int = 42) -> HRMConfig:
+        if preset == "kaggle_max_100m":
+            return cls(
+                preset=preset,
+                d_hidden=768,
+                n_high_steps=4,
+                n_low_steps=4,
+                n_layers_per_block=10,
+                regime_dim=12,
+                max_seq_len=16,
+                learning_rate=1.5e-4,
+                use_amp_fp16=True,
+                seed=seed,
+            )
         if preset == "kaggle_t4_optimal":
             return cls(
                 preset=preset,
@@ -57,6 +71,7 @@ class HRMConfig:
                 regime_dim=12,
                 max_seq_len=16,
                 learning_rate=3e-4,
+                use_amp_fp16=True,
                 seed=seed,
             )
         return cls(
@@ -68,6 +83,7 @@ class HRMConfig:
             regime_dim=12,
             max_seq_len=16,
             learning_rate=1e-3,
+            use_amp_fp16=False,
             seed=seed,
         )
 
@@ -174,7 +190,8 @@ class HRMReasoner:
         return int(self.np_w_surrogate.size + self.np_w_policy.size)
 
     def estimate_training_vram_mb(self) -> float:
-        return round((self.parameter_count() * 16.0) / (1024.0**2) + 24.0, 2)
+        bytes_per_param = 10.0 if self.config.use_amp_fp16 else 16.0
+        return round((self.parameter_count() * bytes_per_param) / (1024.0**2) + 36.0, 2)
 
     @staticmethod
     def encode_regime_state(

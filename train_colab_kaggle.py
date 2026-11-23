@@ -189,7 +189,7 @@ def finetune_slm_with_unsloth_qlora(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Modular Micro-RSI on Google Colab / Kaggle / CPU")
-    parser.add_argument("--preset", default="auto", choices=["auto", "cpu_fast", "kaggle_t4_optimal"])
+    parser.add_argument("--preset", default="auto", choices=["auto", "cpu_fast", "kaggle_t4_optimal", "kaggle_max_100m"])
     parser.add_argument("--slm-model", default="unsloth/Qwen3-4B-bnb-4bit")
     parser.add_argument("--enable-unsloth-qlora", action="store_true")
     parser.add_argument("--epochs", type=int, default=12)

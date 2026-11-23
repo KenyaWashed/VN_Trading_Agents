@@ -34,7 +34,7 @@ except Exception:
 
 @dataclass
 class ASTDiffusionConfig:
-    preset: str = "cpu_fast"  # "cpu_fast" (~0.1M) | "kaggle_t4_optimal" (~6.4M)
+    preset: str = "cpu_fast"  # "cpu_fast" (~0.11M) | "kaggle_t4_optimal" (~6.36M) | "kaggle_max_100m" (~100M)
     d_model: int = 64
     n_layers: int = 2
     n_heads: int = 4
@@ -42,10 +42,26 @@ class ASTDiffusionConfig:
     max_seq_len: int = 16
     denoise_steps: int = 6
     learning_rate: float = 1e-3
+    kl_beta: float = 0.04
+    use_amp_fp16: bool = False
     seed: int = 42
 
     @classmethod
     def from_preset(cls, preset: str, seed: int = 42) -> ASTDiffusionConfig:
+        if preset == "kaggle_max_100m":
+            return cls(
+                preset=preset,
+                d_model=768,
+                n_layers=14,
+                n_heads=12,
+                d_ff=3072,
+                max_seq_len=16,
+                denoise_steps=10,
+                learning_rate=1.5e-4,
+                kl_beta=0.04,
+                use_amp_fp16=True,
+                seed=seed,
+            )
         if preset == "kaggle_t4_optimal":
             return cls(
                 preset=preset,
@@ -56,6 +72,8 @@ class ASTDiffusionConfig:
                 max_seq_len=16,
                 denoise_steps=8,
                 learning_rate=3e-4,
+                kl_beta=0.04,
+                use_amp_fp16=True,
                 seed=seed,
             )
         return cls(
@@ -67,6 +85,8 @@ class ASTDiffusionConfig:
             max_seq_len=16,
             denoise_steps=6,
             learning_rate=1e-3,
+            kl_beta=0.04,
+            use_amp_fp16=False,
             seed=seed,
         )
 
@@ -181,9 +201,10 @@ class DiscreteASTDiffusion:
         return int(self.np_logits.size)
 
     def estimate_training_vram_mb(self) -> float:
-        """Conservative FP32/AdamW VRAM estimate (weights + grads + 2x optimizer states + activations)."""
+        """VRAM estimate: FP16 AMP + AdamW (~10 bytes/param) when enabled, else FP32 AdamW (~16 bytes/param)."""
         params = self.parameter_count()
-        return round((params * 16.0) / (1024.0**2) + 32.0, 2)
+        bytes_per_param = 10.0 if self.config.use_amp_fp16 else 16.0
+        return round((params * bytes_per_param) / (1024.0**2) + 48.0, 2)
 
     def _predict_logits(self, seq: list[int], family_id: int, mask_ratio: float) -> np.ndarray:
         if HAS_TORCH and self.net is not None:
@@ -364,6 +385,121 @@ class DiscreteASTDiffusion:
             self.train_steps_completed += 1
         self.last_train_loss = 0.0
         return {"steps": epochs, "loss": 0.0, "samples": len(seqs)}
+
+    def fit_diffu_grpo(
+        self,
+        group_rollouts: list[dict[str, Any]],
+        epochs: int = 6,
+    ) -> dict[str, float | int]:
+        """Orthogonal Subtree diffu-GRPO (Critic-Free Group-Relative Policy Optimization for Masked Diffusion).
+
+        Unlike ReST/SFT (which only reinforces positives), diffu-GRPO computes group-relative advantages
+        A_g = (R_g - mean(R)) / (std(R) + eps) across parallel subtree mutations and actively pushes
+        probability mass TOWARD high-advantage orthogonal subtrees and AWAY from redundant/negative ones.
+        """
+        if len(group_rollouts) < 2:
+            return {"steps": 0, "loss": 0.0, "samples": len(group_rollouts)}
+
+        seqs: list[list[int]] = []
+        fam_ids: list[int] = []
+        rewards: list[float] = []
+
+        for item in group_rollouts:
+            try:
+                sp = FactorSpec.model_validate(item["factor_spec"])
+                seqs.append(self.vocab.encode_ast(sp.root))
+                fam_ids.append(self.vocab.family_to_id(str(item.get("family", "momentum_liquidity"))))
+                rewards.append(float(item["orthogonal_reward"]))
+            except Exception:
+                continue
+
+        if len(seqs) < 2:
+            return {"steps": 0, "loss": 0.0, "samples": len(seqs)}
+
+        r_arr = np.asarray(rewards, dtype=float)
+        adv_arr = (r_arr - float(np.mean(r_arr))) / (float(np.std(r_arr)) + 1e-6)
+        adv_arr = np.clip(adv_arr, -2.5, 2.5)
+
+        if HAS_TORCH and self.net is not None and self.optimizer is not None:
+            self.net.train()
+            x_clean = torch.tensor(seqs, dtype=torch.long, device=self.device)
+            f_t = torch.tensor(fam_ids, dtype=torch.long, device=self.device)
+            adv_t = torch.tensor(adv_arr, dtype=torch.float32, device=self.device)
+
+            # Snapshot reference logits for KL anchoring (prevents policy collapse)
+            with torch.no_grad():
+                mr_ref = torch.full((x_clean.shape[0],), 0.35, dtype=torch.float32, device=self.device)
+                ref_log_probs = F.log_softmax(self.net(x_clean, f_t, mr_ref), dim=-1)
+
+            use_amp = bool(self.config.use_amp_fp16 and self.device.type == "cuda")
+            last_loss = 0.0
+            for _ in range(epochs):
+                ratio = float(self.rng.uniform(0.20, 0.70))
+                rand_mask = torch.rand(x_clean.shape, device=self.device) < ratio
+                rand_mask[:, 0] = False
+                rand_mask = rand_mask & (x_clean != self.vocab.pad_id)
+                if not rand_mask.any():
+                    rand_mask[:, 1] = True
+
+                x_noisy = x_clean.clone()
+                x_noisy[rand_mask] = self.vocab.mask_id
+                mr_t = torch.full((x_clean.shape[0],), ratio, dtype=torch.float32, device=self.device)
+
+                with torch.amp.autocast(device_type=self.device.type, enabled=use_amp):
+                    logits = self.net(x_noisy, f_t, mr_t)
+                    log_probs = F.log_softmax(logits, dim=-1)
+                    nll = F.nll_loss(
+                        log_probs.view(-1, self.vocab.vocab_size),
+                        x_clean.view(-1),
+                        reduction="none",
+                    ).view(x_clean.shape)
+                    seq_nll = (nll * rand_mask.float()).sum(dim=1) / rand_mask.float().sum(dim=1).clamp(min=1.0)
+                    # Minimize +A_g * NLL (= maximize A_g * log p), pushing up positive-advantage & down negative-advantage!
+                    pg_loss = (adv_t * seq_nll).mean()
+                    kl_div = F.kl_div(log_probs, ref_log_probs.exp(), reduction="batchmean")
+                    loss = pg_loss + self.config.kl_beta * kl_div
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+                self.optimizer.step()
+                self.train_steps_completed += 1
+                last_loss = float(loss.item())
+
+            self.last_train_loss = round(last_loss, 5)
+            return {
+                "steps": epochs,
+                "loss": self.last_train_loss,
+                "samples": len(seqs),
+                "mean_reward": round(float(np.mean(r_arr)), 5),
+                "max_reward": round(float(np.max(r_arr)), 5),
+            }
+
+        # Pure-NumPy diffu-GRPO policy gradient with KL L2 shrinkage
+        lr = 0.22
+        for _ in range(epochs):
+            for seq, fid, adv in zip(seqs, fam_ids, adv_arr, strict=True):
+                for pos in range(1, self.config.max_seq_len - 1):
+                    tid = seq[pos]
+                    if tid == self.vocab.pad_id:
+                        break
+                    row = self.np_logits[fid, pos] + self.prior_bias[fid]
+                    probs = np.exp(row - np.max(row))
+                    probs /= probs.sum() + 1e-12
+                    grad = -probs
+                    grad[tid] += 1.0
+                    self.np_logits[fid, pos] = (1.0 - self.config.kl_beta * 0.1) * self.np_logits[fid, pos] + (
+                        lr * float(adv) * grad / max(1, len(seqs))
+                    )
+            self.train_steps_completed += 1
+        self.last_train_loss = round(float(-np.mean(adv_arr * r_arr)), 5)
+        return {
+            "steps": epochs,
+            "loss": self.last_train_loss,
+            "samples": len(seqs),
+            "mean_reward": round(float(np.mean(r_arr)), 5),
+            "max_reward": round(float(np.max(r_arr)), 5),
+        }
 
     def save_checkpoint(self, path: str | Path) -> Path:
         out = Path(path)
