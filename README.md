@@ -173,26 +173,24 @@ uv run python paper/verify_paper.py                             # 7. Verify all 
 
 *(If you have `make` installed, `make all` runs the full chain.)*
 
-#### 3. Train the Modular Models (Notebook or CLI)
+#### 3. Training & Isolated Sandbox
 
-- **Jupyter Notebook**: Open [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) on any GPU notebook environment and run all cells. It automatically detects single-GPU, multi-GPU, or CPU setups, trains `DiscreteASTDiffusion` (`6.36M`), `HRMReasoner` (`3.38M`), and optionally fine-tunes `Qwen3-4B` / `Qwen3-1.7B` via Unsloth 4-bit QLoRA, then saves checkpoints and regenerates paper tables.
-- **Direct Python CLI**:
-  ```bash
-  # Optional GPU packages for QLoRA fine-tuning:
-  pip install -q unsloth trl datasets bitsandbytes accelerate
+```bash
+# Train via notebook: notebooks/train_mave_q_kaggle_colab.ipynb
 
-  python train_colab_kaggle.py \
-      --preset kaggle_t4_optimal \
-      --enable-unsloth-qlora \
-      --slm-model unsloth/Qwen3-4B-bnb-4bit \
-      --epochs 25 \
-      --outer-iters 4
-  ```
-- **Isolated Docker Sandbox**:
-  ```bash
-  docker build -t mave-q-sandbox .
-  docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" mave-q-sandbox
-  ```
+# Or run the training script directly (install optional GPU deps if using QLoRA):
+pip install -q unsloth trl datasets bitsandbytes accelerate
+python train_colab_kaggle.py \
+    --preset kaggle_t4_optimal \
+    --enable-unsloth-qlora \
+    --slm-model unsloth/Qwen3-4B-bnb-4bit \
+    --epochs 25 \
+    --outer-iters 4
+
+# Run inside an isolated no-network Docker container:
+docker build -t mave-q-sandbox .
+docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" mave-q-sandbox
+```
 
 ---
 
@@ -332,7 +330,20 @@ Xem sơ đồ cây thư mục chi tiết ở mục [Repository Structure](#repos
    uv run python experiments/build_report.py
    uv run python paper/verify_paper.py
    ```
-3. **Huấn luyện bộ 3 mô hình độc lập trên bất kỳ môi trường GPU / CPU nào**:
-   - Dùng trực tiếp file notebook: [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb)
-   - Hoặc chạy script dòng lệnh: `python train_colab_kaggle.py --preset kaggle_t4_optimal --enable-unsloth-qlora --slm-model unsloth/Qwen3-4B-bnb-4bit --epochs 25 --outer-iters 4`
-   - Hoặc chạy cô lập hoàn toàn trong Docker không mạng: `docker build -t mave-q-sandbox . && docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" mave-q-sandbox`
+3. **Huấn luyện mô hình & chạy trong Docker cô lập**:
+   ```bash
+   # Chạy trực tiếp bằng notebook: notebooks/train_mave_q_kaggle_colab.ipynb
+
+   # Hoặc chạy script huấn luyện:
+   pip install -q unsloth trl datasets bitsandbytes accelerate
+   python train_colab_kaggle.py \
+       --preset kaggle_t4_optimal \
+       --enable-unsloth-qlora \
+       --slm-model unsloth/Qwen3-4B-bnb-4bit \
+       --epochs 25 \
+       --outer-iters 4
+
+   # Chạy cô lập trong Docker không kết nối mạng:
+   docker build -t mave-q-sandbox .
+   docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" mave-q-sandbox
+   ```
