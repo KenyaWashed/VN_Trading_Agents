@@ -1,7 +1,8 @@
-# Modular Micro-RSI Architecture & Free Cloud GPU (Kaggle / Colab) Training Guide
+# MAVE-Q Modular Architecture & Free Cloud GPU (Kaggle / Colab) Training Guide
 
+**Paper**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model Quantitative Research in Rule-Constrained Emerging Markets*  
 **Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher*  
-**Project**: `VN-RSI` (Leak-Free Recursively Self-Improving Multi-Agent Research System for Vietnamese Equities)
+**Notebook**: [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb)
 
 ---
 
@@ -53,8 +54,8 @@ All **21 automated unit/leakage/seal/model tests** (`pytest`), `ruff`, `mypy` (3
 
 ## 5. How to Train & Reproduce on Kaggle or Google Colab
 
-### Option A: Drag-and-Drop Notebook (Fastest)
-Upload [`notebooks/train_vn_rsi_colab_kaggle.ipynb`](notebooks/train_vn_rsi_colab_kaggle.ipynb) directly to **Kaggle** (select Accelerator: **GPU T4 x2**) or **Google Colab** (Runtime $\to$ **T4 GPU**), set your GitHub repo URL in Cell 2, and click **Run All**.
+### Option A: Drag-and-Drop Notebook (Fastest — Recommended for Kaggle & Colab)
+Upload [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) directly to **Kaggle** (select Accelerator: **GPU T4 x2**) or **Google Colab** (Runtime $\to$ **T4 GPU**), confirm your GitHub repo URL in Cell 2, and click **Run All**.
 
 ### Option B: Direct CLI Script (`train_colab_kaggle.py`)
 ```bash

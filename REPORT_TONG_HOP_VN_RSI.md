@@ -1,5 +1,5 @@
-# BÁO CÁO TỔNG HỢP DỰ ÁN NGHIÊN CỨU: VN-RSI
-**Hệ thống Đa Tác Tử Tự Cải Tiến Đệ Quy (Recursively Self-Improving Multi-Agent System) với Mô Hình Nhỏ ($\le$8B) & Kiến trúc Phân rã Modular Micro-RSI (HRM + Discrete AST Diffusion) cho Cổ Phiếu Việt Nam (HOSE, HNX, UPCoM)**
+# BÁO CÁO TỔNG HỢP DỰ ÁN NGHIÊN CỨU: MAVE-Q
+**MAVE-Q: Modular Autonomous Verified Evolution for Small-Model ($\le$8B) Quantitative Research in Rule-Constrained Emerging Markets**
 
 **Tác giả**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher*
 

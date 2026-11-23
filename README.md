@@ -1,70 +1,68 @@
 <div align="center">
 
-# VN-RSI: Leak-Free Recursively Self-Improving Multi-Agent Research System for Vietnamese Equities
+# MAVE-Q: Modular Autonomous Verified Evolution for Small-Model Quantitative Research
 
 [![Python 3.11–3.13](https://img.shields.io/badge/Python-3.11--3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Code Style: Ruff](https://img.shields.io/badge/Lint-Ruff%200%20errors-D7FF64?logo=ruff&logoColor=black)](pyproject.toml)
-[![Type Checked: Mypy](https://img.shields.io/badge/Types-Mypy%20Clean-2A6DB2)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](pyproject.toml)
+[![Lint: Ruff](https://img.shields.io/badge/Lint-Ruff%200%20errors-D7FF64?logo=ruff&logoColor=black)](pyproject.toml)
+[![Types: Mypy](https://img.shields.io/badge/Types-Mypy%20Clean-2A6DB2)](pyproject.toml)
 [![Tests: 21/21 Passing](https://img.shields.io/badge/Pytest-21%2F21%20Passing-2EA44F)](tests/)
-[![Free GPU Ready](https://img.shields.io/badge/Free%20GPU-Kaggle%20T4x2%20%7C%20Colab%20T4-F9AB00?logo=googlecolab&logoColor=white)](notebooks/train_vn_rsi_colab_kaggle.ipynb)
-[![Research Only](https://img.shields.io/badge/Scope-Research%20Simulation%20Only-crimson)](#research--safety-disclaimer)
+[![Kaggle & Colab Ready](https://img.shields.io/badge/Free%20GPU-Kaggle%20T4x2%20%7C%20Colab%20T4-20BEFF?logo=kaggle&logoColor=white)](notebooks/train_mave_q_kaggle_colab.ipynb)
+[![Research Only](https://img.shields.io/badge/Scope-Academic%20Simulation%20Only-crimson)](#disclaimer)
 
+**Paper Title**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model ($\le$8B) Quantitative Research in Rule-Constrained Emerging Markets*  
 **Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher* ([@KenyaWashed](https://github.com/KenyaWashed))
-
-*Can small open models ($\le$8B) — or a decomposed sub-10M **Modular Micro-RSI** core (`HRM/TRM` + `Discrete Masked AST Diffusion`) — recursively improve their own quantitative research policy inside a tamper-proof, leak-free sandbox for a rule-constrained emerging equity market (Vietnam: HOSE, HNX, UPCoM)?*
 
 </div>
 
 ---
 
-## Research & Safety Disclaimer
+## Disclaimer
 
-> **IMPORTANT**: This repository is an **academic ML research & simulation framework ONLY** (targeting arXiv `cs.AI` / `cs.LG` / `q-fin.CP`).
-> - **Zero live trading**: Contains no brokerage integrations, order routing, trading account credentials, or financial/investment advice.
-> - **Offline snapshots only**: Experiments read exclusively from SHA-256 verified local Parquet snapshots (`data/` is gitignored; raw broker data is never redistributed).
-> - **Transparent reporting**: Default CI/reproduction tables are clearly flagged `is_synthetic=true` (deterministic Vietnamese microstructure benchmark) until you freeze your own empirical `vnstock` snapshot locally.
+> **Academic Research & Simulation ONLY** — This codebase contains **zero live trading**, zero brokerage connectivity, zero order-placement logic, and no financial/investment advice. All experiments run offline against SHA-256 verified local Parquet snapshots (`data/` is gitignored; raw broker data is never redistributed). Default CI benchmark tables are transparently labeled `is_synthetic=true` until you freeze your own empirical snapshot locally.
 
 ---
 
-## Why VN-RSI?
+## 1. Core Idea & Literature Inspirations (Ý tưởng chính & Kế thừa từ các Paper)
 
-Frontier Recursively Self-Improving (RSI) systems like **AQuA** (`arXiv:2608.12841`), **AIDE²** (`arXiv:2609.26457`), **Darwin Gödel Machine** (`arXiv:2505.22954`), and **ShinkaEvolve** (`arXiv:2509.19349`) rely heavily on massive closed models or multi-GPU clusters, and are typically evaluated on liquid US/crypto datasets. **VN-RSI** brings verifiable, leak-free RSI to **consumer laptops and free cloud GPUs (Kaggle `T4 x2` / Colab `T4`)** under real emerging-market microstructure constraints:
+**Câu hỏi khoa học cốt lõi**: *Liệu một hệ thống đa tác tử chỉ dùng các mô hình mở cỡ nhỏ ($\le$8B — hoặc kiến trúc phân rã siêu nhẹ dưới `10M` tham số lõi cấu trúc chạy miễn phí trên Kaggle `T4 x2` / Colab `T4`) có thể **tự cải tiến quy trình nghiên cứu định lượng của chính nó** mà vẫn giữ đánh giá hoàn toàn **chống rò rỉ dữ liệu (leak-free)** trong một thị trường mới nổi kém thanh khoản và ràng buộc chặt như chứng khoán Việt Nam (HOSE, HNX, UPCoM)?*
 
-- **SHA-256 Sealed Sandbox (`EvaluatorSeal`)**: Splits, cost simulator, and evaluator are human-owned, hash-pinned, and read-only inside Docker (`--network=none`). Any agent tamper attempt raises `TamperDetectedError`.
-- **Single-Shot Sealed Test Ledger (`SealedTestLedger`)**: Strict 3-zone protocol (`search` $\to$ `validation` scalar-only $\to$ `sealed_test` scored **at most once** per frozen config hash).
-- **Vietnamese Equity Microstructure (`configs/market_rules.yaml`)**: Enforces **T+2.5 settlement holding locks**, **$\pm 7\%$ (HOSE) / $\pm 10\%$ (HNX) / $\pm 15\%$ (UPCoM) ceiling/floor execution blocks**, 100-share board lots, long-only cash rules, 0.15% brokerage fee, **0.10% statutory sell tax**, square-root ADV illiquidity impact, delisted/halted tickers, and **point-in-time (PIT) fundamental announcement lags**.
-- **Two Interchangeable Agent Architectures ($\le$8B Hard Limit)**:
-  1. **Monolithic $\le$8B Bi-Level RSI** (`Qwen3-8B` via Ollama/vLLM/llama.cpp + typed causal AST DSL + `EpistemicBeliefMemory` + `DGMArchive`).
-  2. **Modular Micro-RSI (Free-GPU Friendly)**: Decomposes the 8B monolith into **3 specialized models**:
-     - `Qwen3-4B` / `Qwen3-1.7B` (Unsloth 4-bit QLoRA, ~2.0–4.5 GB VRAM) — Financial Ideation & Critique
-     - **Discrete Masked AST Diffusion (`6.36M` params, ~129 MB VRAM)** — 100% grammar-valid causal factor synthesis, **Subtree Infilling** mutation, and Reward-Weighted ReST weight updates
-     - **HRM / TRM Hierarchical Recursive Reasoner (`3.38M` params, ~76 MB VRAM)** — Slow ($z_H$) regime planning + Fast ($z_L$) candidate IC surrogate filtering
-- **Audited Paper Pipeline**: Auto-generates LaTeX tables from JSONL logs where every single cell links to a `run_id`, verified automatically by `paper/verify_paper.py` (19/19 BibTeX citations, 66/66 numeric cells).
+**MAVE-Q** (**M**odular **A**utonomous **V**erified **E**volution for **Q**uantitative Research) kết hợp và thu nhỏ tinh hoa từ 6 nhánh nghiên cứu mới nhất (2024–2026):
+
+| Nguồn Paper Gốc (Đã xác thực arXiv) | Cơ chế Kế thừa vào MAVE-Q | Cách Thu nhỏ / Cải tiến cho GPU Miễn phí ($\le$4B + <10M) |
+| :--- | :--- | :--- |
+| **AQuA** (`arXiv:2608.12841`) | Hộp cát đánh giá niêm phong (*sealed sandbox*), ngữ pháp toán tử nhân quả cố định, bộ nhớ niềm tin (*belief memory*), chấm `sealed_test` đúng 1 lần. | Áp dụng nghiêm ngặt vi cấu trúc sàn VN (`T+2.5`, biên độ `±7%/10%/15%`, thuế bán `0.1%`, BCTC Point-in-Time) và khóa mã băm `EvaluatorSeal` SHA-256. |
+| **AIDE²** (`arXiv:2609.26457`) | Vòng lặp tự cải tiến hai cấp (*bi-level RSI*): vòng trong tìm giải pháp, vòng ngoài sửa tác tử và chọn lọc trên điểm đánh giá ẩn. | Giới hạn chỉnh sửa vòng ngoài trong **bề mặt khả biến có kiểu** (`MutableSurfaceGuard`) thay vì sửa tự do mã nguồn Python (tránh sập code & reward hacking ở model nhỏ). |
+| **Darwin Gödel Machine** (`arXiv:2505.22954`) & **ShinkaEvolve** (`arXiv:2509.19349`) | Kho lưu trữ mở các biến thể tác tử (`DGMArchive`, cân bằng *fitness + novelty*) và bộ lọc loại trùng lặp sớm. | Bổ sung dấu vân tay cấu trúc AST (`structural_fingerprint`) để chống hiện tượng *mode collapse* ở model nhỏ trước khi chạy backtest tốn kém. |
+| **HRM** (`arXiv:2506.21734`) & **TRM** (`arXiv:2510.04871`) | Mạng suy luận phân cấp 2 thang thời gian chậm ($z_H$) / nhanh ($z_L$) trong không gian ẩn chỉ vài triệu tham số. | Xây dựng **`HRMReasoner` (`3.38M` tham số, ~76 MB VRAM)**: tầng chậm $z_H$ lập kế hoạch theo chế độ thị trường VN, tầng nhanh $z_L$ chấm điểm dự đoán IC lọc ứng viên. |
+| **MDLM / LLaDA** *(Discrete Masked Diffusion)* | Khử nhiễu song song trên chuỗi rời rạc thay vì sinh từ trái sang phải. | Xây dựng **`DiscreteASTDiffusion` (`6.36M` tham số, ~129 MB VRAM)** trên đúng 70 token DSL nhân quả: đảm bảo **100% đúng cú pháp**, đột biến nhánh con (**Subtree Infilling**) và tự cập nhật trọng số (**Reward-Weighted ReST**). |
+| **Qwen3** (`arXiv:2505.09388`) & **Bailey–López de Prado** (2014, 2018) | Mô hình mở nhỏ gọn + Purged/Embargoed Walk-Forward CV + **Deflated Sharpe Ratio (DSR)**. | Dùng `Qwen3-4B` / `1.7B` (Unsloth 4-bit QLoRA, ~2–4.5 GB VRAM) chỉ cho diễn giải giả thuyết kinh tế; kiểm định đa thử nghiệm bằng DSR & Block-Bootstrap 95% CI. |
 
 ---
 
-## System Architecture
+## 2. Kiến trúc Hệ thống `MAVE-Q` (Architecture Overview)
+
+Thay vì ép 1 LLM 8B–70B nguyên khối làm mọi việc, **MAVE-Q** chia nhỏ thành **3 mô hình chuyên biệt** hoạt động trong **vòng lặp hai cấp (Bi-Level RSI)** bao bọc bởi **Hộp cát Niêm phong SHA-256**:
 
 ```mermaid
 flowchart TD
     subgraph OUTER["Outer Loop: Bi-Level RSI Meta-Controller (Declared Mutable Surface ONLY)"]
-        ARC["DGM Open-Ended Archive<br/>(Fitness + Novelty Sampling)"] --> PROP["Meta-Proposer<br/>(<=8B SLM or HRM z_H)"]
-        PROP --> GUARD["MutableSurfaceGuard<br/>(Blocks Evaluator/Split/Cost Edits)"]
+        ARC["DGM Open-Ended Archive<br/>(Fitness + Novelty Sampling)"] --> PROP["Outer Meta-Proposer<br/>(HRM z_H or <=8B SLM)"]
+        PROP --> GUARD["MutableSurfaceGuard<br/>(Blocks Evaluator / Splits / Costs Edits)"]
         GUARD --> GATE["Statistical Acceptance Gate<br/>(Paired Multi-Seed Validation)"]
     end
 
-    subgraph INNER["Inner Loop: 7-Role Constrained Pipeline + Modular Micro-Models"]
-        PLAN["Planner & DataSteward<br/>(Search Zone Summary ONLY)"] --> MINER["IdeaMiner<br/>(FalsifiableHypothesis + Sign)"]
-        MINER --> IMP["Implementer<br/>(Discrete AST Diffusion 6.36M<br/>+ HRM z_L Surrogate 3.38M)"]
-        IMP --> AUD["LeakageAuditor<br/>(AST Grammar + Dynamic Shift-Test + Novelty)"]
-        AUD --> LIB["Librarian<br/>(EpistemicBeliefMemory + SFT/ReST Export)"]
+    subgraph INNER["Inner Loop: 7-Role Pipeline + 3 Decomposed Micro-Models"]
+        PLAN["1-2. Planner & DataSteward<br/>(Search Zone Stats ONLY)"] --> MINER["3. IdeaMiner — Model 1<br/>(Qwen3-4B/1.7B QLoRA ~4.5GB)<br/>FalsifiableHypothesis + Sign"]
+        MINER --> IMP["4. Implementer — Models 2 & 3<br/>Discrete AST Diffusion (6.36M, 129MB)<br/>+ HRM z_L Surrogate (3.38M, 76MB)"]
+        IMP --> AUD["5. LeakageAuditor<br/>(Grammar + Dynamic Shift-Test + Novelty)"]
+        AUD --> LIB["6-7. EvaluatorProxy & Librarian<br/>(EpistemicBeliefMemory + ReST SFT Export)"]
     end
 
     subgraph SEAL["Human-Owned SHA-256 Sealed Sandbox (Immutable / Read-Only)"]
-        SNAP["Immutable Parquet Snapshot<br/>(SHA-256 Manifest + PIT Fundamentals)"]
-        SIM["VN Market Simulator<br/>(T+2.5, +/-7/10/15% Locks, 0.1% Sell Tax)"]
-        LED["3-Zone Guard & Single-Shot Sealed Test Ledger<br/>(Rank IC, Net Sharpe, Deflated Sharpe Ratio, Bootstrap CIs)"]
+        SNAP["Immutable Parquet Snapshot<br/>(SHA-256 Manifest + PIT Fundamentals + Delistings)"]
+        SIM["VN Market Simulator<br/>(T+2.5 Lock, +/-7/10/15% Ceiling/Floor, 0.1% Sell Tax)"]
+        LED["3-Zone Guard & Single-Shot Sealed Test Ledger<br/>(Rank IC, ICIR, Net Sharpe, DSR, Bootstrap CIs)"]
         SNAP --> SIM --> LED
     end
 
@@ -75,9 +73,132 @@ flowchart TD
 
 ---
 
-## Benchmark Snapshot (Verified Reproduction)
+## 3. Cấu trúc Thư mục (Repository Structure)
 
-Results below are auto-generated from [`logs/experiment_registry.jsonl`](paper/tables/main_results.tex) on the deterministic Vietnamese microstructure benchmark (`is_synthetic=true`, 30 tickers incl. delisted/halted `ROS_DELIST` & `FLC_HALT`, 2019–2025, net of T+2.5, fees, 0.1% sell tax, and illiquidity slippage):
+Mỗi thư mục trong `src/vn_rsi/` có file `README.md` khai báo rõ mức độ tin cậy (**HUMAN-OWNED IMMUTABLE** vs **AGENT-MUTABLE**):
+
+```text
+VN_Trading_Agents/
+├── README.md                                  # Tài liệu chính repo MAVE-Q
+├── MODULAR_RSI_ARCHITECTURE.md                # Phân tích chi tiết 3 model, đo VRAM & hướng dẫn Kaggle/Colab
+├── REPORT_TONG_HOP_VN_RSI.md                  # Báo cáo tổng hợp chi tiết (Tiếng Việt)
+├── PROGRESS.md                                # Checklist nghiệm thu từng Phase & trạng thái Verified/UNVERIFIED
+├── pyproject.toml                             # Cấu hình Python 3.11-3.13, dependencies (uv), ruff, mypy, pytest
+├── Makefile                                   # Lệnh chạy nhanh: data, test, lint, baseline, agent, rsi, modular, report
+├── Dockerfile                                 # Container sandbox cô lập (--network=none --read-only)
+├── train_colab_kaggle.py                      # Module Python train end-to-end được notebook gọi trực tiếp
+│
+├── notebooks/                                 # Notebook chuẩn để upload chạy ngay trên Kaggle / Colab
+│   └── train_mave_q_kaggle_colab.ipynb        # ★ FILE .IPYNB CHÍNH ĐỂ TRAIN FREE TRÊN KAGGLE (T4 x2) / COLAB (T4)
+│
+├── configs/                                   # [HUMAN-OWNED] Toàn bộ cấu hình YAML tái lập thực nghiệm
+│   ├── market_rules.yaml                      # Quy tắc HOSE (±7%), HNX (±10%), UPCoM (±15%), T+2.5, thuế 0.1%, FOL
+│   ├── data.yaml                              # Cấu hình snapshot Parquet, universe (vn30/vn100/all_liquid), QA
+│   ├── sandbox.yaml                           # Phân vùng search / validation / sealed_test, purge & embargo, canary
+│   ├── llm.yaml                               # Backend <=8B (Ollama/vLLM/llama.cpp/CPU), ngân sách cứng token/GPU-h
+│   ├── agent_v0.yaml                          # Genome khởi tạo & ngưỡng chấp nhận giả thuyết của Agent v0
+│   ├── rsi.yaml                               # Whitelist bề mặt khả biến, DGM archive, 6 ablations, Ignition, OOD
+│   └── kaggle_modular_rsi.yaml                # Preset chia GPU (cuda:0 / cuda:1) cho Kaggle T4 x2 & Colab T4
+│
+├── src/vn_rsi/                                # Mã nguồn lõi (internal Python package `vn_rsi`)
+│   ├── data/                                  # [HUMAN-OWNED] Vnstock/Synthetic providers, SHA-256 snapshots, DataQASuite
+│   ├── dsl/                                   # [HUMAN-OWNED] 18 toán tử nhân quả, 18 terminals, ASTVerifier, JSON Schema
+│   ├── sandbox/                               # [HUMAN-OWNED] EvaluatorSeal SHA-256, DataZoneGuard, VNSimulator, TestLedger
+│   ├── eval/                                  # [HUMAN-OWNED] Rank IC, Net Sharpe, DSR, Bootstrap CI, 7 human baselines
+│   ├── llm/                                   # [HUMAN-OWNED] LLMBackend (chặn >8B vòng chính), constrained JSON decoding
+│   ├── memory/                                # [HYBRID] EpistemicBeliefMemory (suy giảm niềm tin & phạt mâu thuẫn)
+│   ├── agents/                                # [AGENT-MUTABLE] Pipeline 7 vai trò & schema FalsifiableHypothesis
+│   ├── models/                                # [SEARCH-ZONE TRAINABLE] ASTVocab, DiscreteASTDiffusion, HRMReasoner, ModularBackend
+│   ├── rsi/                                   # [HUMAN-OWNED META] BiLevelRSIRunner, MutableSurfaceGuard, DGMArchive
+│   └── utils/                                 # [HUMAN-OWNED] Reproducibility seeds, config/code hashing, BudgetTracker, JSONL log
+│
+├── experiments/                               # CLI chạy từng pha thực nghiệm
+│   ├── run_data.py                            # Phase 1: Tạo snapshot bất biến + chạy Data QA & shift-leakage test
+│   ├── run_baselines.py                       # Phase 2: Khóa seal + Canary check + chạy 7 baselines
+│   ├── run_agent_v0.py                        # Phase 3: Chạy Multi-Agent v0 (<=8B, chưa RSI)
+│   ├── run_rsi.py                             # Phase 4A: Chạy Bi-Level RSI + 6 Ablations + Ignition + OOD (VN100)
+│   ├── run_modular_rsi.py                     # Phase 4B: Chạy Modular Micro-RSI (HRM + Discrete AST Diffusion + ReST)
+│   └── build_report.py                        # Phase 5: Tự động xuất bảng LaTeX từ JSONL gắn run_id từng dòng
+│
+├── tests/                                     # 21 bài test tự động bắt buộc (CI)
+│   ├── test_leakage_qa.py                     # Test shift-test rò rỉ tương lai, PIT announcement lag, delisted tickers
+│   ├── test_dsl_causality.py                  # Test ngữ pháp nhân quả & từ chối toán tử look-ahead
+│   ├── test_sandbox_seal.py                   # Test khóa SHA-256 tamper detection, chặn truy cập test 2 lần
+│   ├── test_rsi_surface.py                    # Test chặn >8B, dừng cứng ngân sách, chặn sửa evaluator
+│   └── test_modular_models.py                 # Test DiscreteASTDiffusion, Subtree Infilling, HRMReasoner & ReST
+│
+├── paper/                                     # Bản thảo LaTeX & kiểm toán trích dẫn/số liệu
+│   ├── main.tex                               # Bản thảo paper MAVE-Q
+│   ├── references.bib                         # 19 trích dẫn đã xác thực từ arXiv API & tài liệu gốc
+│   ├── tables/                                # Bảng LaTeX sinh tự động (`main_results.tex`, `rsi_ablations.tex`)
+│   └── verify_paper.py                        # Kiểm toán 100% \cite{} và 66/66 ô số liệu khớp JSONL logs
+│
+├── docs/                                      # Tài liệu thiết kế & nghiên cứu chuyên sâu
+│   ├── related_work.md                        # Tổng quan 17 bài arXiv + 2 sách định lượng (Phase 0)
+│   ├── design_decision.md                     # Đánh đổi thiết kế & 5 đóng góp bài báo xếp hạng
+│   ├── data_terms.md                          # Điều khoản nguồn dữ liệu & hướng dẫn tái lập snapshot
+│   ├── decisions.md                           # Nhật ký quyết định kỹ thuật & phương pháp luận
+│   └── scale_up_guide.md                      # Hướng dẫn mở rộng từ CPU -> T4 -> 24GB GPU -> Multi-GPU
+│
+└── scripts/
+    └── ci_check.py                            # Script CI tổng hợp (ruff + mypy + pytest + verify_paper)
+```
+
+---
+
+## 4. Cách Chạy Full Hệ Thống (Full End-to-End Guide)
+
+### A. Train Model Miễn Phí trên Kaggle (`T4 x2`) hoặc Google Colab (`1x T4`) bằng file `.ipynb`
+
+File notebook chuẩn đã được cấu hình sẵn tại: **[`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb)**
+
+| Nền tảng Free | Phần cứng Miễn phí | Phân bổ VRAM thực đo | Khuyến nghị |
+| :--- | :--- | :--- | :---: |
+| **Kaggle Notebooks** | **Dual T4 (`T4 x2`: 2 $\times$ 16 GB VRAM)**, 30h/tuần, chạy ngầm 12h | `cuda:0`: `Qwen3-4B` (~4.5 GB) \| `cuda:1`: `AST Diffusion + HRM` (~0.21 GB) | **Khuyên dùng #1** |
+| **Google Colab** | **Single T4 (`1x 16 GB VRAM`)** | `cuda:0`: tổng đỉnh ~7.2 GB / 16 GB (tự giải phóng VRAM giữa các pha) | **Chạy tốt** *(dùng `Qwen3-1.7B` nếu muốn nhanh gấp 2x)* |
+
+**Các bước chạy trên Kaggle / Colab**:
+1. Tải file [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) lên **Kaggle** (bật Accelerator: **`GPU T4 x2`** và bật **Internet**) hoặc mở trên **Google Colab** (Runtime $\to$ **`T4 GPU`**).
+2. Kiểm tra link `REPO_URL` ở **Cell 2** (mặc định `https://github.com/KenyaWashed/VN_Trading_Agents.git`).
+3. Bấm **Run All** — Notebook sẽ tự động cài `unsloth` + gói lõi, chạy 21 bài test chống leakage, train **Discrete AST Diffusion (6.36M)** + **HRM Reasoner (3.38M)** + **Qwen3-4B Unsloth 4-bit QLoRA**, chạy đầy đủ đánh giá niêm phong và lưu checkpoints vào `/kaggle/working/mave_q_checkpoints`.
+
+---
+
+### B. Chạy Full trên Máy Local (CPU / GPU) từ Phase 1 $\to$ Phase 5
+
+```bash
+# 1. Clone repo & cài môi trường bằng uv (hoặc dùng: pip install -e ".[dev]")
+git clone https://github.com/KenyaWashed/VN_Trading_Agents.git
+cd VN_Trading_Agents
+uv sync --extra dev
+
+# 2. Chạy toàn bộ bộ kiểm thử tự động (ruff + mypy + 21 pytest tests chống leakage/tamper)
+uv run python scripts/ci_check.py
+
+# 3. Chạy trọn bộ pipeline nghiên cứu từ Phase 1 -> Phase 5
+uv run python experiments/run_data.py                           # Phase 1: Snapshot Parquet + Data QA
+uv run python experiments/run_baselines.py --reset-ledger       # Phase 2: Sealed Sandbox + 7 Baselines
+uv run python experiments/run_agent_v0.py                       # Phase 3: Multi-Agent v0 (<=8B)
+uv run python experiments/run_rsi.py                            # Phase 4A: Bi-Level RSI + 6 Ablations + Ignition + OOD
+uv run python experiments/run_modular_rsi.py --preset cpu_fast  # Phase 4B: Modular Micro-RSI (HRM + AST Diffusion)
+uv run python experiments/build_report.py                       # Phase 5A: Auto-generate LaTeX tables
+uv run python paper/verify_paper.py                             # Phase 5B: Kiểm toán 100% trích dẫn & số liệu
+```
+
+*(Hoặc dùng nhanh 1 lệnh qua Makefile nếu có `make`: `make all`)*
+
+### C. Chạy trong Container Sandbox Cô lập (Docker `--network=none`)
+
+```bash
+docker build -t mave-q-sandbox .
+docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" mave-q-sandbox
+```
+
+---
+
+## 5. Kết quả Thực nghiệm Đối chứng (Auto-Verified from Logs)
+
+Kết quả dưới đây trích xuất trực tiếp từ [`paper/tables/main_results.tex`](paper/tables/main_results.tex) (đã kiểm toán khớp 66/66 ô với `logs/experiment_registry.jsonl`, chạy trên benchmark vi cấu trúc VN tất định `is_synthetic=true` sau đầy đủ chi phí T+2.5, phí môi giới 0.15%, thuế bán 0.10% và trượt giá thanh khoản):
 
 | Method | Val Rank IC | Val Net Sharpe | Sealed Test Rank IC | Sealed Test Net Sharpe | Test Ann. Net Ret | Test DSR |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -89,116 +210,16 @@ Results below are auto-generated from [`logs/experiment_registry.jsonl`](paper/t
 | Purged Walk-Forward GBDT | 0.0787 | 0.615 | 0.0427 | 0.532 | 17.5% | 0.168 |
 | Purged Temporal GRU | 0.0976 | 0.450 | 0.0720 | 0.396 | 11.5% | 0.120 |
 | Agent $v_0$ ($\le$8B, No RSI) | 0.1036 | 0.677 | 0.0910 | 1.339 | 40.1% | 0.365 |
-| **VN-RSI $v^*$ ($\le$8B Bi-Level)** | 0.1025 | 0.877 | 0.0637 | 1.432 | 38.8% | 0.105 |
-| **Modular Micro-RSI (`HRM + AST Diff.`)** | **0.1045** | **1.019** | 0.0539 | **1.918** | 31.0% | **0.389** |
-
-> *Why Deflated Sharpe Ratio (DSR) matters*: Notice how accounting for all search & ablation trials lowers DSR relative to naive single-trial Sharpe — illustrating why multiple-testing correction is mandatory in autonomous quant research papers.
-
----
-
-## Quickstart
-
-### 1. Local Setup (CPU Laptop or Local GPU)
-
-```bash
-git clone https://github.com/KenyaWashed/VN_Trading_Agents.git
-cd VN_Trading_Agents
-
-# Recommended: fast reproducible install via uv (https://docs.astral.sh/uv/)
-uv sync --extra dev
-
-# Or via standard pip
-pip install -e ".[dev]"
-```
-
-Run the full automated test suite (anti-leakage shift tests, PIT announcement checks, AST causality, SHA-256 tamper seal, single-shot test ledger, $\le$8B guard, and modular model tests):
-
-```bash
-uv run python scripts/ci_check.py
-```
-
-Run the entire Phases 1 $\to$ 5 research pipeline and verify paper tables:
-
-```bash
-uv run python experiments/run_data.py
-uv run python experiments/run_baselines.py --reset-ledger
-uv run python experiments/run_agent_v0.py
-uv run python experiments/run_rsi.py
-uv run python experiments/run_modular_rsi.py --preset cpu_fast
-uv run python experiments/build_report.py
-uv run python paper/verify_paper.py
-```
-
-### 2. Free Cloud GPU Training (Kaggle `T4 x2` & Google Colab `T4` — $0)
-
-| Cloud Platform | Free Hardware | Peak VRAM (`Qwen3-4B` + `6.36M Diff` + `3.38M HRM`) | Status |
-| :--- | :--- | :---: | :---: |
-| **Kaggle Notebooks Free** *(Best)* | Dual NVIDIA T4 (`2 x 16 GB`, 30h/week) | `cuda:0` ~4.5 GB / `cuda:1` ~0.21 GB | **Fully Supported** |
-| **Google Colab Free** | Single NVIDIA T4 (`16 GB`) | ~7.2 GB / 16 GB (sequential cleanup) | **Fully Supported** |
-
-- **Notebook**: Upload [`notebooks/train_vn_rsi_colab_kaggle.ipynb`](notebooks/train_vn_rsi_colab_kaggle.ipynb) to Kaggle (`GPU T4 x2`) or Google Colab (`T4 GPU`) and click **Run All**.
-- **CLI Script**:
-  ```bash
-  pip install -q -e ".[dev]" unsloth trl datasets bitsandbytes accelerate
-  python train_colab_kaggle.py \
-      --preset kaggle_t4_optimal \
-      --enable-unsloth-qlora \
-      --slm-model unsloth/Qwen3-4B-bnb-4bit \
-      --epochs 25 \
-      --outer-iters 4
-  ```
-  *(Use `--slm-model unsloth/Qwen3-1.7B-bnb-4bit` on Colab 1x T4 for ~2x faster iterations.)*
-
-### 3. Isolated Docker Sealed Sandbox (`--network=none`)
-
-```bash
-docker build -t vn-rsi-sandbox .
-docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" vn-rsi-sandbox
-```
-
----
-
-## Repository Layout & Trust Boundaries
-
-Every source module declares its trust level in its local `README.md`:
-
-| Path | Trust Level | Responsibility |
-| :--- | :--- | :--- |
-| `configs/` | **HUMAN-OWNED IMMUTABLE** | Market rules, zone dates, $\le$8B budgets, mutable-surface whitelist, Kaggle/Colab presets |
-| `src/vn_rsi/data/` | **HUMAN-OWNED IMMUTABLE** | `DataProvider` (`vnstock` + synthetic VN fixture), SHA-256 Parquet snapshots, `DataQASuite` |
-| `src/vn_rsi/dsl/` | **HUMAN-OWNED IMMUTABLE** | Fixed causal operator registry (`18` ops, `18` terminals), `ASTVerifier`, JSON schema |
-| `src/vn_rsi/sandbox/` | **HUMAN-OWNED IMMUTABLE** | `EvaluatorSeal`, 3-zone `DataZoneGuard`, `VNPortfolioSimulator`, `SealedTestLedger` |
-| `src/vn_rsi/eval/` | **HUMAN-OWNED IMMUTABLE** | Rank IC, ICIR, Net Sharpe/Sortino, DSR, block-bootstrap CIs, 7 human baselines, Canary checks |
-| `src/vn_rsi/llm/` | **HUMAN-OWNED IMMUTABLE** | `LLMBackend` ($\le$8B enforcement, Ollama/vLLM/llama.cpp, flagged optional teacher) |
-| `src/vn_rsi/memory/` | **HYBRID (SCHEMA IMMUTABLE)** | `EpistemicBeliefMemory` with confidence decay, run-ID links, contradiction penalties |
-| `src/vn_rsi/agents/` | **AGENT-MUTABLE VIA GENOME** | 7-role constrained hypothesis-to-experiment multi-agent pipeline |
-| `src/vn_rsi/models/` | **SEARCH-ZONE TRAINABLE** | `ASTVocab`, `DiscreteASTDiffusion`, `HRMReasoner`, `ModularMicroRSIBackend` |
-| `src/vn_rsi/rsi/` | **HUMAN-OWNED META-CONTROLLER** | `BiLevelRSIRunner`, `MutableSurfaceGuard`, `DGMArchive`, statistical gate, Ignition & OOD |
-| `experiments/` | **HUMAN-OWNED CLI** | Reproducible experiment runners (`run_data`, `run_baselines`, `run_agent_v0`, `run_rsi`, `run_modular_rsi`, `build_report`) |
-| `paper/` | **AUTO-VERIFIED MANUSCRIPT** | LaTeX draft (`main.tex`), verified BibTeX (`references.bib`), generated tables, `verify_paper.py` |
-| `tests/` | **HUMAN-OWNED CI** | 21 mandatory leakage, causality, tamper-seal, budget, and modular-model tests |
-
----
-
-## Documentation Index
-
-- **[MODULAR_RSI_ARCHITECTURE.md](MODULAR_RSI_ARCHITECTURE.md)** — Deep dive into the 3-model decomposition (`Qwen3-4B/1.7B` + `6.36M Discrete AST Diffusion` + `3.38M HRM/TRM`), VRAM calibration, and Kaggle/Colab setup.
-- **[REPORT_TONG_HOP_VN_RSI.md](REPORT_TONG_HOP_VN_RSI.md)** — Comprehensive Vietnamese project report covering Phases 0–5 and empirical analysis.
-- **[docs/related_work.md](docs/related_work.md)** — Verified literature survey of 17 arXiv papers + 2 foundational quant methodology works.
-- **[docs/design_decision.md](docs/design_decision.md)** — Big-to-$\le$8B scaling trade-offs and 5 ranked paper contributions.
-- **[docs/data_terms.md](docs/data_terms.md)** — Data source inventory, licensing terms, and offline snapshot reproduction guide.
-- **[docs/scale_up_guide.md](docs/scale_up_guide.md)** — Scaling from CPU $\to$ Free T4 $\to$ 24 GB GPU (`Ollama`/`vLLM`) $\to$ multi-GPU & full HOSE/HNX/UPCoM universe.
-- **[PROGRESS.md](PROGRESS.md)** — Phase acceptance checklist and transparent Verified vs. UNVERIFIED inventory.
+| Monolithic Bi-Level RSI $v^*$ ($\le$8B) | 0.1025 | 0.877 | 0.0637 | 1.432 | 38.8% | 0.105 |
+| **MAVE-Q Modular (`HRM + AST Diff.`)** | **0.1045** | **1.019** | 0.0539 | **1.918** | 31.0% | **0.389** |
 
 ---
 
 ## Citation
 
-If you build upon this codebase or sealed emerging-market benchmark in your research, please cite:
-
 ```bibtex
-@misc{tran2026vnrsi,
-  title        = {VN-RSI: Leak-Free Bi-Level Recursive Self-Improvement of Modular Small-Model Quantitative Research Agents in Rule-Constrained Emerging Equities},
+@misc{tran2026maveq,
+  title        = {MAVE-Q: Modular Autonomous Verified Evolution for Small-Model Quantitative Research in Rule-Constrained Emerging Markets},
   author       = {Tran Duy Khang},
   year         = {2026},
   howpublished = {\url{https://github.com/KenyaWashed/VN_Trading_Agents}},
@@ -208,4 +229,4 @@ If you build upon this codebase or sealed emerging-market benchmark in your rese
 
 ## License
 
-Released under the **MIT License**. Note that raw third-party market data is **not** included or redistributed in this repository; see [`docs/data_terms.md`](docs/data_terms.md).
+MIT License — Raw third-party market data is strictly excluded and never redistributed (see [`docs/data_terms.md`](docs/data_terms.md)).
