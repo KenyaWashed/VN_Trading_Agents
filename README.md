@@ -1,8 +1,22 @@
+<div align="center">
+
 # MAVE-Q: Modular Autonomous Verified Evolution for Small-Model Quantitative Research
 
-> **Paper**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model (≤8B) Quantitative Research in Rule-Constrained Emerging Markets*  
-> **Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher* ([@KenyaWashed](https://github.com/KenyaWashed))  
-> **Language**: [English](#english-version) | [Tiếng Việt](#phiên-bản-tiếng-việt)
+[![License: MIT](https://img.shields.io/badge/License-MIT-00C853?style=for-the-badge&logo=open-source-initiative&logoColor=white)](LICENSE)
+[![Python 3.11–3.13](https://img.shields.io/badge/Python-3.11--3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Modular%20RSI-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)](src/vn_rsi/models/)
+[![Pytest](https://img.shields.io/badge/Tests-21%2F21%20Passing-2EA44F?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
+[![Ruff](https://img.shields.io/badge/Ruff-Clean-7C3AED?style=for-the-badge&logo=ruff&logoColor=white)](pyproject.toml)
+[![Mypy](https://img.shields.io/badge/Mypy-Typed-0284C7?style=for-the-badge&logo=python&logoColor=white)](pyproject.toml)
+[![Docker](https://img.shields.io/badge/Sandbox-Sealed%20Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](Dockerfile)
+[![LaTeX Paper](https://img.shields.io/badge/Paper-LaTeX%20Audited-F59E0B?style=for-the-badge&logo=latex&logoColor=white)](paper/main.tex)
+[![Research Only](https://img.shields.io/badge/Scope-Research%20Only%20%7C%20No%20Live%20Trading-DC2626?style=for-the-badge&logo=shield&logoColor=white)](#disclaimer)
+
+**Paper**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model (≤8B) Quantitative Research in Rule-Constrained Emerging Markets*  
+**Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher* ([@KenyaWashed](https://github.com/KenyaWashed))  
+**Language**: [English](#english-version) | [Tiếng Việt](#phiên-bản-tiếng-việt)
+
+</div>
 
 ---
 
