@@ -1,0 +1,42 @@
+# Sealed Evaluation Sandbox Configuration (Phase 2)
+# Trust Level: HUMAN-OWNED IMMUTABLE (Protected by SHA-256 seal in Evaluator)
+
+protocol_version: "sealed_vn_v1"
+seed: 42
+prediction_horizon_days: 5        # Predict 5-day forward risk-adjusted excess return (compatible with T+2.5)
+rebalance_every_days: 3           # Respects T+2.5 settlement cycle on EOD bars
+portfolio_top_k: 6                # Long-only top-K equal/score-weighted stocks within liquid universe
+capital_vnd: 1000000000.0         # 1 Billion VND reference research portfolio
+
+# Three Strict Data Zones (ISO dates, non-overlapping with purge + embargo)
+zones:
+  search:
+    start: "2019-01-02"
+    end: "2022-12-30"
+    agent_access: "full_bars_and_features"
+  validation:
+    start: "2023-01-03"
+    end: "2024-06-28"
+    agent_access: "scalar_scores_only"
+  sealed_test:
+    start: "2024-07-15"           # 10+ trading days purged/embargoed after validation end
+    end: "2025-12-31"
+    agent_access: "sealed_once_per_frozen_config"
+
+walk_forward:
+  n_folds: 4
+  purge_days: 6                   # >= prediction_horizon_days + 1 to eliminate label overlap
+  embargo_days: 5                 # Post-fold embargo buffer against serial correlation
+  eval_seeds: [11, 22, 33]
+
+ledger_path: "logs/sealed_test_ledger.jsonl"
+
+statistical_rigor:
+  bootstrap_samples: 500
+  confidence_level: 0.95
+  min_deflated_sharpe_prob: 0.60  # Bailey & Lopez de Prado (2014) DSR threshold
+
+canary:
+  enable_tamper_check: true
+  enable_shuffled_label_null_test: true
+  max_null_ic_abs: 0.045

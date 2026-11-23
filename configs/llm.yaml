@@ -1,0 +1,45 @@
+# LLM Backend & Hardware Budget Configuration
+# Hard Constraint: Main loop models MUST be <= 8B parameters.
+
+active_backend: "local_8b_sim_or_ollama"   # "ollama" | "vllm" | "llamacpp" | "deterministic_8b_scaffolding"
+
+model:
+  name: "qwen3:8b-q4_K_M"
+  parameter_count_billions: 8.0
+  max_allowed_main_loop_params_b: 8.0
+  quantization: "4bit"
+  endpoint_url: "http://127.0.0.1:11434/v1/chat/completions"
+  temperature: 0.3
+  max_tokens: 768
+  context_window_tokens: 4096              # Short-context discipline for <=8B
+
+# Optional clearly-flagged Teacher backend (NEVER required; ONLY for distillation or teacher ablation)
+teacher_backend:
+  enabled: false
+  is_teacher: true
+  name: "qwen2.5:72b-instruct"
+  parameter_count_billions: 72.0
+  endpoint_url: "http://127.0.0.1:8000/v1/chat/completions"
+
+# Small-model scaffolding settings
+scaffolding:
+  enforce_json_schema: true
+  max_schema_retries: 3
+  best_of_n_candidates: 3
+  use_deterministic_verifier: true
+  memory_top_k_retrieval: 5
+
+# Hardware & Compute Budgets (Hard Stops, NOT warnings)
+hardware:
+  min_vram_gb_recommended: 24.0
+  configured_vram_gb: 0.0                  # 0.0 = CPU / quantized fallback mode
+  max_ram_gb: 16.0
+  job_runner: "local_sequential"           # "local_sequential" | "local_multiprocess"
+
+budgets:
+  inner_loop_max_tokens: 60000
+  inner_loop_max_wall_seconds: 180.0
+  inner_loop_max_gpu_hours: 0.25
+  outer_loop_max_tokens: 300000
+  outer_loop_max_wall_seconds: 600.0
+  outer_loop_max_gpu_hours: 1.50

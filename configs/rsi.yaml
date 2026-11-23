@@ -1,0 +1,55 @@
+# Phase 4: Bi-Level Recursive Self-Improvement (RSI) Configuration
+# Inspired by AQuA (sealed sandbox + belief memory), AIDE^2 (bi-level rewrite + private selection),
+# Darwin Godel Machine (open-ended archive), and ShinkaEvolve (novelty rejection + sample efficiency).
+
+rsi_experiment_id: "vn_rsi_bilevel_v1"
+seed: 2026
+outer_iterations: 4
+inner_rounds_per_eval: 2
+inner_hypotheses_per_round: 3
+selection_seeds: [101, 202, 303]
+
+# Declared Mutable Surface (Hard Whitelist - everything outside this list is IMMUTABLE)
+mutable_surface:
+  - "planner_focus_weights"
+  - "idea_miner_system_prompt"
+  - "implementer_max_ast_depth"
+  - "preferred_windows"
+  - "exploration_temperature"
+  - "best_of_n"
+  - "memory_decay_rate"
+  - "contradiction_penalty"
+  - "novelty_similarity_threshold"
+
+# Open-Ended Archive (DGM-style)
+archive:
+  max_variants: 12
+  novelty_weight: 0.25
+  fitness_weight: 0.75
+
+# Statistical Acceptance Gate on Private Validation Score
+selection_gate:
+  min_mean_improvement: 0.003
+  min_win_fraction_across_seeds: 0.66
+  max_p_value_paired_t: 0.25
+
+# Optional <=8B LoRA / ReST Self-Training Trajectory Dataset Export
+self_training:
+  export_sft_trajectories: true
+  sft_output_path: "logs/sft_verified_trajectories.jsonl"
+  enable_lora_weight_update: false         # Configurable for 24GB GPU with peft/trl installed
+
+# Out-of-Distribution (OOD) Generalization & Ignition Checks
+ood_evaluation:
+  ood_universe_tier: "vn100"
+  ood_prediction_horizon_days: 10
+  ignition_seeds: [404, 505, 606]
+
+# Required Ablations (Section 6)
+ablations:
+  - "full_rsi_8b"
+  - "no_outer_loop"
+  - "no_memory"
+  - "random_mutation"
+  - "no_leakage_auditor"
+  - "teacher_proposer_sim"

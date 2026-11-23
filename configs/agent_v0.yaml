@@ -1,0 +1,33 @@
+# Phase 3: Multi-Agent Research System v0 Configuration (Before Self-Improvement)
+# Roles: Planner, DataSteward, IdeaMiner, Implementer, LeakageAuditor, EvaluatorProxy, Librarian
+
+agent_version: "v0_baseline_agent"
+seed: 101
+n_hypotheses_per_round: 4
+n_rounds: 3
+
+# Mutable Agent Genome (initial v0 values; outer loop in Phase 4 may ONLY edit keys in this block)
+genome:
+  planner_focus_weights:
+    momentum_liquidity: 0.25
+    reversal_microstructure: 0.25
+    value_quality_pit: 0.25
+    foreign_flow_regime: 0.25
+  idea_miner_system_prompt: >-
+    Propose falsifiable Vietnamese equity alpha hypotheses grounded in HOSE/HNX/UPCoM
+    microstructure (T+2.5 settlement lock, +/-7% price bands, retail liquidity shocks,
+    foreign room flows, and point-in-time quarterly fundamentals). Always state expected sign
+    and strict refutation criteria before specifying operators.
+  implementer_max_ast_depth: 3
+  preferred_windows: [5, 10, 20]
+  exploration_temperature: 0.35
+  best_of_n: 3
+  memory_decay_rate: 0.90
+  contradiction_penalty: 0.35
+  require_auditor_pass: true
+  novelty_similarity_threshold: 0.85
+
+acceptance_criteria:
+  min_search_rank_ic: 0.015
+  min_val_rank_ic: 0.010
+  min_val_net_sharpe: 0.20

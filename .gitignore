@@ -1,0 +1,27 @@
+# Data snapshots and raw caches (never redistribute raw market data)
+data/
+!data/.gitkeep
+
+# Experiment artifacts & logs (tracked locally per run, reproducible via configs)
+artifacts/
+logs/
+mlruns/
+wandb/
+
+# Python / build / virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.aux
+*.log
+*.out
+*.bbl
+*.blg

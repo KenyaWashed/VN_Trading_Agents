@@ -1,0 +1,55 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{natbib}
+
+\title{VN-RSI: Leak-Free Bi-Level Recursive Self-Improvement of Small-Model ($\le$8B) Quantitative Research Agents in Rule-Constrained Emerging Equities}
+\author{Anonymous Authors \\ \texttt{Working Draft — Do Not Distribute Without Empirical Snapshot Run}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Recent recursively self-improving (RSI) research systems such as AQuA \citep{guo2026aqua}, AIDE$^2$ \citep{srikanth2026aide2}, and the Darwin G\"odel Machine \citep{zhang2025dgm} rely heavily on frontier language models. We study whether an LLM-driven multi-agent research system restricted strictly to small open models ($\le$8B parameters, e.g., \citealt{yang2025qwen3}) can improve its own research policy from validated experimental evidence while preserving leak-free evaluation in a small, illiquid, rule-constrained emerging market: Vietnamese equities (HOSE, HNX, UPCoM). We introduce \textbf{VN-RSI}, which pairs (i) a SHA-256 tamper-locked sandbox enforcing Vietnam's T+2.5 settlement cycle, $\pm 7\%/10\%/15\%$ price-limit locks, point-in-time fundamental announcement lags, and statutory 0.1\% sell taxes with (ii) a typed causal operator DSL, epistemic belief memory with contradiction decay, and a bounded outer-loop genome archive \citep{zhang2025dgm,lange2025shinkaevolve}. Every reported table cell is automatically generated from structured run logs and audited against multiple-testing inflation via the Deflated Sharpe Ratio \citep{bailey2014deflated}. \emph{Disclosure: Baseline tables in this repository snapshot reflect deterministic synthetic Vietnamese microstructure benchmarks (\texttt{is\_synthetic=true}) for reproducible CI verification prior to running on local empirical \texttt{vnstock} snapshots.}
+\end{abstract}
+
+\section{Introduction and Scientific Question}
+Autonomous quantitative research systems have progressed from interactive alpha formula translation \citep{wang2023alphagpt,yuan2024alphagpt2} and joint factor-model co-optimization \citep{li2025rdagentq} to recursively self-improving pipelines \citep{guo2026aqua,srikanth2026aide2}. However, two open questions limit real-world scientific trust:
+\begin{enumerate}
+  \item \textbf{Small-Model Feasibility ($\le$8B)}: Frontier code-rewriting loops \citep{zelikman2023stop,hu2024adas,novikov2025alphaevolve,jiang2025aide,yamada2025aiscientistv2,schmidgall2025agentlab} degrade sharply when downscaled to single-GPU $\le$8B open models unless unstructured code edits and long-context self-critiques \citep{shinn2023reflexion,madaan2023selfrefine} are replaced by grammar-constrained specifications and external deterministic verifiers.
+  \item \textbf{Emerging-Market Microstructure \& Leakage Traps}: Retail-dominated emerging markets such as Vietnam impose T+2.5 settlement locks, tight daily price bands ($\pm 7\%$ HOSE, $\pm 10\%$ HNX, $\pm 15\%$ UPCoM), zero cash-equity short selling, foreign ownership room caps, and severe survivorship/announcement-lag pitfalls that invalidate frictionless US/crypto backtests.
+\end{enumerate}
+
+\section{Sealed Protocol and Vietnamese Microstructure Sandbox}
+Following \citet{guo2026aqua}, agents emit constrained specifications while human-owned, SHA-256 hash-locked code owns the splits, simulator, and evaluator:
+\begin{itemize}
+  \item \textbf{Three Strict Data Zones}: \texttt{search} (full inspection by DataSteward), \texttt{validation} (scalar score-only feedback), and \texttt{sealed\_test} (scored at most once per frozen configuration hash via an append-only ledger), separated by purged and embargoed chronological gaps \citep{lopezdeprado2018advances}.
+  \item \textbf{Structural Causality}: Factors are represented as abstract syntax trees over a fixed causal operator registry; dynamic future-perturbation shift tests verify exact invariance to $t' > t$ bars.
+  \item \textbf{Realistic Execution}: Long-only 100-share board-lot orders respect T+2.5 holding locks, unfillable ceiling buys and floor sells, 15 bps brokerage commission, 10 bps statutory sell tax, and square-root ADV participation impact.
+\end{itemize}
+
+\section{VN-RSI Bi-Level Architecture for $\le$8B Models}
+In the \textbf{inner loop}, seven specialized roles (Planner, DataSteward, IdeaMiner, Implementer, LeakageAuditor, EvaluatorProxy, Librarian) formulate falsifiable hypotheses before generating JSON-schema constrained \texttt{FactorSpec} trees, retaining compositional verified discoveries \citep{wang2023voyager} in a compact epistemic belief store with decay and contradiction penalties. In the \textbf{outer loop}, a meta-proposer samples parent genomes from an open-ended archive \citep{zhang2025dgm,lange2025shinkaevolve} and proposes bounded edits strictly within a declared mutable surface, gated by paired multi-seed validation improvements \citep{srikanth2026aide2}.
+
+\section{Experimental Results and Ablations}
+Tables~\ref{tab:main_results} and~\ref{tab:rsi_ablations} are auto-generated directly from \texttt{logs/experiment\_registry.jsonl} via \texttt{experiments/build\_report.py}.
+
+\input{tables/main_results.tex}
+
+\input{tables/rsi_ablations.tex}
+
+\section{Limitations and Ethical Safeguards}
+\begin{enumerate}
+  \item \textbf{Simulation Only — Zero Live Trading}: This codebase contains no brokerage connectivity, order-routing code, or investment advice.
+  \item \textbf{Single-Market \& Cost Parameterization}: While statutory fees and price bands are verified, exact square-root market impact coefficients remain conservative approximations (\texttt{verified: false} in \texttt{configs/market\_rules.yaml}).
+  \item \textbf{Bounded Mutable Surface}: Restricting outer-loop rewrites to a typed genome prevents reward hacking on $\le$8B models, at the cost of not inventing novel Python operator primitives autonomously.
+  \item \textbf{Synthetic CI vs. Empirical Runs}: Numbers in the default repository build come from our deterministic microstructure generator (\texttt{is\_synthetic=true}); empirical claims require running \texttt{make data} with \texttt{provider\_mode: live\_vnstock} and live local \texttt{Qwen3-8B} weights on a 24\,GB GPU.
+\end{enumerate}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

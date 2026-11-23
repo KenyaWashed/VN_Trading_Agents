@@ -1,0 +1,69 @@
+# Vietnamese Equities Market Microstructure & Regulatory Rules
+# Trust Level: HUMAN-OWNED IMMUTABLE (Agents have READ-ONLY metadata view; cannot edit)
+# Every rule records its regulatory/exchange source and verification status.
+
+version: "2026.1"
+currency: "VND"
+
+exchanges:
+  HOSE:
+    name: "Ho Chi Minh City Stock Exchange"
+    daily_price_limit_pct: 0.07          # +/- 7% around Reference Price (prev close adjusted)
+    first_day_limit_pct: 0.20            # +/- 20% on listing day
+    lot_size: 100                        # Round lot = 100 shares (effective Jan 2021)
+    source: "HOSE Trading Regulation / State Securities Commission of Vietnam (SSC)"
+    verified: true
+  HNX:
+    name: "Hanoi Stock Exchange"
+    daily_price_limit_pct: 0.10          # +/- 10% around Reference Price
+    first_day_limit_pct: 0.30
+    lot_size: 100
+    source: "HNX Listed Equities Trading Rules / SSC"
+    verified: true
+  UPCOM:
+    name: "Unlisted Public Company Market"
+    daily_price_limit_pct: 0.15          # +/- 15% around Reference Price (weighted avg prev day)
+    first_day_limit_pct: 0.40
+    lot_size: 100
+    source: "HNX UPCoM Trading Rules / SSC"
+    verified: true
+
+settlement:
+  cycle_days: 2.5                        # T+2.5 (shares bought on T arrive afternoon of T+2)
+  min_holding_bars_eod: 3                # Conservative EOD execution lock: buy at T close/next-open -> earliest EOD exit at T+3 (or T+2 afternoon)
+  allow_intraday_roundtrip: false
+  source: "Vietnam Securities Depository and Clearing Corporation (VSDC) T+2.5 rule (effective Aug 2022)"
+  verified: true
+
+short_selling:
+  allow_cash_equity_short: false         # Retail/institutional cash equity short selling prohibited
+  allow_vn30_futures_hedge: false        # Disabled in cash-equity track; configurable for future derivatives study
+  source: "SSC Cash Equity Trading Regulations"
+  verified: true
+
+transaction_costs:
+  broker_commission_bps: 15.0            # 0.15% per leg (typical VN retail/institutional range: 10-25 bps)
+  sell_tax_bps: 10.0                     # 0.10% Personal Income / Securities Transfer Tax on gross sell proceeds
+  buy_tax_bps: 0.0
+  source: "Circular 111/2013/TT-BTC & Circular 92/2015/TT-BTC (0.1% securities transfer tax on sales)"
+  verified: true
+
+illiquidity_impact:
+  model: "sqrt_participation_plus_spread"
+  base_half_spread_bps:
+    HOSE: 12.0
+    HNX: 25.0
+    UPCOM: 45.0
+  impact_coeff_bps: 35.0                 # Scales with sqrt(order_notional / adv_20d)
+  max_adv_participation: 0.05            # Cap single-day order at 5% of 20-day Average Daily Value
+  ceiling_buy_blocked: true              # Cannot buy at ceiling if close >= ceiling_price * (1 - 1e-4)
+  floor_sell_blocked: true               # Cannot sell at floor if close <= floor_price * (1 + 1e-4)
+  source: "Standard square-root market impact calibration for emerging illiquid markets (UNVERIFIED exact proprietary broker impact; parameterized conservatively)"
+  verified: false
+
+foreign_ownership:
+  default_fol_limit_pct: 0.49            # Standard 49% cap where unrestricted up to 100% not filed; banking cap 30%
+  banking_fol_limit_pct: 0.30
+  enforce_fol_room_check: true
+  source: "Decree 155/2020/ND-CP on Foreign Ownership Limits in Vietnamese public companies"
+  verified: true

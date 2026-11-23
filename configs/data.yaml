@@ -1,0 +1,33 @@
+# Data Layer Configuration (Phase 1)
+# Trust Level: HUMAN-OWNED IMMUTABLE
+# Experiments ONLY read immutable Parquet snapshots verified against manifest SHA-256.
+
+snapshot_id: "vn_equities_snapshot_v1"
+snapshot_root: "data/snapshots"
+seed: 20261123
+
+# Provider chain: tries live vnstock if `mode: live_vnstock`, falls back or uses deterministic
+# realistic multi-exchange simulation fixture (`mode: synthetic_fixture`) when offline or for CI reproducibility.
+# Any snapshot built from `synthetic_fixture` is explicitly marked `is_synthetic: true` in manifest.json
+# so synthetic numbers can NEVER be misrepresented as empirical market returns.
+provider_mode: "auto"   # "live_vnstock" | "synthetic_fixture" | "auto"
+vnstock_sources: ["VCI", "TCBS"]
+rate_limit_seconds: 1.0
+
+# Scalable universe selection: "vn30" | "vn100" | "all_liquid"
+universe_tier: "vn30"
+available_tiers:
+  vn30: 30
+  vn100: 100
+  all_liquid: 220
+
+start_date: "2019-01-02"
+end_date: "2025-12-31"
+resolutions: ["1D"]     # Intraday ("1H", "15m") probed & documented honestly for coverage gaps
+
+qa_checks:
+  require_shift_leakage_test: true
+  require_pit_announcement_check: true
+  require_survivorship_delisted_presence: true
+  require_price_band_reconciliation: true
+  max_cross_source_adj_close_diff_pct: 0.02
