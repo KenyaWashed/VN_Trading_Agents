@@ -138,6 +138,29 @@ def main() -> None:
             {"table": "main_results", "row": "rsi_vstar", "col": m_name, "formatted": _fmt(val, dg), "raw": val, "run_id": rid}
         )
 
+    # Optional Modular Micro-RSI (HRM + Discrete AST Diffusion) row if logged
+    if "phase4_modular_rsi" in runs:
+        pm = runs["phase4_modular_rsi"]
+        mod_tm = pm.get("sealed_test_metrics", {})
+        if "net_sharpe" in mod_tm:
+            mod_cells = [
+                ("val_rank_ic", pm["best_val_rank_ic"], 4, "phase4_modular_rsi"),
+                ("val_sharpe", pm["best_val_sharpe"], 3, "phase4_modular_rsi"),
+                ("test_rank_ic", mod_tm["rank_ic"], 4, "phase4_modular_rsi"),
+                ("test_sharpe", mod_tm["net_sharpe"], 3, "phase4_modular_rsi"),
+                ("test_ret", mod_tm["ann_net_return"], 3, "phase4_modular_rsi"),
+                ("test_dsr", mod_tm["deflated_sharpe_prob"], 3, "phase4_modular_rsi"),
+            ]
+            t1_lines.append(
+                "\\textbf{Modular Micro-RSI (HRM + AST Diff.)} & "
+                + " & ".join(_fmt(val, dg) for _, val, dg, _ in mod_cells)
+                + " \\\\ % run_id=phase4_modular_rsi"
+            )
+            for m_name, val, dg, rid in mod_cells:
+                provenance_cells.append(
+                    {"table": "main_results", "row": "modular_micro_rsi", "col": m_name, "formatted": _fmt(val, dg), "raw": val, "run_id": rid}
+                )
+
     t1_lines.extend(["\\bottomrule", "\\end{tabular}", "\\end{table}"])
     (tables_dir / "main_results.tex").write_text("\n".join(t1_lines) + "\n", encoding="utf-8")
 

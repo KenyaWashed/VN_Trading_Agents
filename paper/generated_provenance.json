@@ -433,6 +433,54 @@
       "run_id": "phase4_rsi"
     },
     {
+      "table": "main_results",
+      "row": "modular_micro_rsi",
+      "col": "val_rank_ic",
+      "formatted": "0.1045",
+      "raw": 0.10445,
+      "run_id": "phase4_modular_rsi"
+    },
+    {
+      "table": "main_results",
+      "row": "modular_micro_rsi",
+      "col": "val_sharpe",
+      "formatted": "1.019",
+      "raw": 1.019,
+      "run_id": "phase4_modular_rsi"
+    },
+    {
+      "table": "main_results",
+      "row": "modular_micro_rsi",
+      "col": "test_rank_ic",
+      "formatted": "0.0539",
+      "raw": 0.05392,
+      "run_id": "phase4_modular_rsi"
+    },
+    {
+      "table": "main_results",
+      "row": "modular_micro_rsi",
+      "col": "test_sharpe",
+      "formatted": "1.918",
+      "raw": 1.9181,
+      "run_id": "phase4_modular_rsi"
+    },
+    {
+      "table": "main_results",
+      "row": "modular_micro_rsi",
+      "col": "test_ret",
+      "formatted": "0.310",
+      "raw": 0.31031,
+      "run_id": "phase4_modular_rsi"
+    },
+    {
+      "table": "main_results",
+      "row": "modular_micro_rsi",
+      "col": "test_dsr",
+      "formatted": "0.389",
+      "raw": 0.3889,
+      "run_id": "phase4_modular_rsi"
+    },
+    {
       "table": "rsi_ablations",
       "row": "full_rsi_8b",
       "col": "best_val_composite",

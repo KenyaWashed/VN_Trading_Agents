@@ -1,5 +1,7 @@
 # BÁO CÁO TỔNG HỢP DỰ ÁN NGHIÊN CỨU: VN-RSI
-**Hệ thống Đa Tác Tử Tự Cải Tiến Đệ Quy (Recursively Self-Improving Multi-Agent System) với Mô Hình Nhỏ ($\le$8B) cho Nghiên Cứu Định Lượng Cổ Phiếu Việt Nam (HOSE, HNX, UPCoM)**
+**Hệ thống Đa Tác Tử Tự Cải Tiến Đệ Quy (Recursively Self-Improving Multi-Agent System) với Mô Hình Nhỏ ($\le$8B) & Kiến trúc Phân rã Modular Micro-RSI (HRM + Discrete AST Diffusion) cho Cổ Phiếu Việt Nam (HOSE, HNX, UPCoM)**
+
+**Tác giả**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher*
 
 > **Tuyên bố Tuân thủ Nghiên cứu (Hard Prohibitions - Mục 9)**:
 > Toàn bộ kho mã nguồn này là **hệ thống mô phỏng & nghiên cứu khoa học phục vụ viết bài báo học thuật (arXiv `cs.AI` / `cs.LG` / `q-fin.CP`)**, **TUYỆT ĐỐI KHÔNG** phải bot giao dịch thực tế, không chứa bất kỳ kết nối tài khoản chứng khoán, đặt lệnh thật hay lời khuyên đầu tư nào.

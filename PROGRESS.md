@@ -1,5 +1,6 @@
 # Project Progress & Phase Acceptance Checklist (`PROGRESS.md`)
 
+**Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher*  
 Last Updated: `2026-11-23`
 
 ---
@@ -13,7 +14,8 @@ Last Updated: `2026-11-23`
 | **Phase 2** | `src/vn_rsi/sandbox/`, `src/vn_rsi/eval/` | `EvaluatorSeal` SHA-256 locked (`0f5abc69fa880014...`), Canary null-signal check green (`IC=0.0139 <= 0.045`), 3-zone guard + single-shot `SealedTestLedger`, 7 baselines logged (`run_id=phase2_baselines`) | **PASS (VERIFIED)** |
 | **Phase 3** | `src/vn_rsi/dsl/`, `src/vn_rsi/memory/`, `src/vn_rsi/agents/`, `src/vn_rsi/llm/` | 7-role $\le$8B constrained pipeline, falsifiable hypotheses, causal AST verifier, belief memory with contradiction penalty; `v0` beats/matches baselines with bootstrap CIs & token cost logged (`run_id=phase3_agent_v0`) | **PASS (VERIFIED)** |
 | **Phase 4** | `src/vn_rsi/rsi/` | Bi-level outer loop on declared mutable surface (`0` reward-hacking bypasses), DGM archive, 6 ablations, Ignition check (`INCONCLUSIVE` at $N=3$ seeds honestly reported), OOD check (`VN100`, 10d horizon) (`run_id=phase4_rsi`) | **PASS (VERIFIED)** |
-| **Phase 5** | `experiments/build_report.py`, `paper/main.tex`, `paper/references.bib`, `paper/verify_paper.py` | 60/60 LaTeX table cells linked to `run_id` and numerically verified against `logs/experiment_registry.jsonl`; 100% of `\cite{}` keys verified | **PASS (VERIFIED)** |
+| **Phase 5** | `experiments/build_report.py`, `paper/main.tex`, `paper/references.bib`, `paper/verify_paper.py` | 66/66 LaTeX table cells linked to `run_id` and numerically verified against `logs/experiment_registry.jsonl`; 100% of `\cite{}` keys verified | **PASS (VERIFIED)** |
+| **Phase 6 (Extension)** | `src/vn_rsi/models/`, `train_colab_kaggle.py`, `notebooks/train_vn_rsi_colab_kaggle.ipynb`, `MODULAR_RSI_ARCHITECTURE.md` | Modular Micro-RSI (`DiscreteASTDiffusion` 6.36M + `HRMReasoner` 3.38M + `Qwen3-4B`/`1.7B` Unsloth QLoRA), PyTorch E2E verified, 21/21 `pytest` green, Val Sharpe `1.019` / Sealed Test Sharpe `1.918` (`run_id=phase4_modular_rsi`) | **PASS (VERIFIED)** |
 
 ---
 

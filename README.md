@@ -1,4 +1,6 @@
-# VN-RSI: Recursively Self-Improving Multi-Agent Research System for Vietnamese Equities ($\le$8B LLMs)
+# VN-RSI: Recursively Self-Improving Multi-Agent Research System for Vietnamese Equities ($\le$8B & Modular Micro-RSI)
+
+**Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher*
 
 > **Research Simulation Codebase ONLY (Section 9 Hard Prohibition)**: This system contains **zero** live trading, brokerage connectivity, account credentials, or investment advice. All experiments run offline against immutable versioned Parquet snapshots inside a SHA-256 sealed evaluation sandbox.
 

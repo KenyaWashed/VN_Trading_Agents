@@ -9,7 +9,7 @@ description = "Recursively Self-Improving Multi-Agent Research System for Vietna
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = { text = "MIT" }
-authors = [{ name = "VN-RSI Research Team" }]
+authors = [{ name = "Tran Duy Khang — AI Software Engineer / Freelance Vibe Researcher" }]
 dependencies = [
     "numpy>=1.26.0",
     "pandas>=2.2.0",

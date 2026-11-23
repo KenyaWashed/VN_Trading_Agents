@@ -18,8 +18,7 @@ genome:
     microstructure (T+2.5 settlement lock, +/-7% price bands, retail liquidity shocks,
     foreign room flows, and point-in-time quarterly fundamentals). Always state expected sign
     and strict refutation criteria before specifying operators.
-  implementer_max_ast_de
-  pth: 3
+  implementer_max_ast_depth: 3
   preferred_windows: [5, 10, 20]
   exploration_temperature: 0.35
   best_of_n: 3

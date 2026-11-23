@@ -1,0 +1,53 @@
+# Modular Micro-RSI Configuration — Calibrated for FREE Kaggle T4 x2 (32GB) & Colab T4 (16GB)
+# Author: Tran Duy Khang — AI Software Engineer / Freelance Vibe Researcher
+# Total Active Trainable Micro-Models: ~13.2M params (< 1 GB VRAM) + Optional Qwen3-4B / 1.7B 4-bit QLoRA (~4.5 GB VRAM)
+
+experiment_id: "vn_modular_micro_rsi_v1"
+seed: 2026
+
+# Automatically selects "kaggle_t4_optimal" when CUDA GPU is present, or "cpu_fast" on CPU-only laptops
+model_preset: "auto"   # "auto" | "cpu_fast" | "kaggle_t4_optimal"
+
+models:
+  narrator_slm:
+    # Free-tier Unsloth 4-bit QLoRA sweet spot:
+    # - Kaggle T4 x2 (GPU 0): "unsloth/Qwen3-4B-bnb-4bit" (~4.2 GB VRAM) or "unsloth/Qwen3-1.7B-bnb-4bit" (~2.0 GB VRAM)
+    # - Colab 1x T4 (16GB):   "unsloth/Qwen3-4B-bnb-4bit" or "unsloth/Qwen3-1.7B-bnb-4bit"
+    hf_model_id: "unsloth/Qwen3-4B-bnb-4bit"
+    fast_alt_model_id: "unsloth/Qwen3-1.7B-bnb-4bit"
+    max_seq_length: 2048
+    lora_r: 16
+    lora_alpha: 32
+    qlora_epochs_per_cycle: 2
+    batch_size: 2
+    grad_accum_steps: 4
+
+  ast_diffusion:
+    # Discrete Masked AST Diffusion (Tree-MDLM over 70 causal DSL tokens)
+    # - kaggle_t4_optimal: d_model=256, n_layers=8, n_heads=8, d_ff=1024 -> ~6.4M params (~130 MB training VRAM)
+    # - cpu_fast:          d_model=64,  n_layers=2, n_heads=4, d_ff=256  -> ~0.11M params
+    rest_epochs_per_outer_iter: 10
+
+  hrm_reasoner:
+    # Hierarchical Recursive Model (Slow z_H regime planner + Fast z_L candidate surrogate scorer)
+    # - kaggle_t4_optimal: d_hidden=256, n_high=4, n_low=4, n_layers=4 -> ~3.38M params (~76 MB training VRAM)
+    # - cpu_fast:          d_hidden=64,  n_high=3, n_low=4, n_layers=1 -> ~0.12M params
+    online_epochs_per_outer_iter: 10
+
+rsi_loop:
+  outer_iterations: 4
+  inner_rounds_per_eval: 2
+  inner_hypotheses_per_round: 4
+  selection_seeds: [101, 202, 303]
+  enable_weight_level_self_training: true
+
+hardware_mapping:
+  kaggle_t4_x2:
+    slm_device: "cuda:0"
+    micro_models_device: "cuda:1"
+  colab_t4_single:
+    slm_device: "cuda:0"
+    micro_models_device: "cuda:0"
+  local_cpu:
+    slm_device: "cpu"
+    micro_models_device: "cpu"
