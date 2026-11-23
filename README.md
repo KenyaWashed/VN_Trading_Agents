@@ -10,7 +10,7 @@
 [![Kaggle & Colab Ready](https://img.shields.io/badge/Free%20GPU-Kaggle%20T4x2%20%7C%20Colab%20T4-20BEFF?logo=kaggle&logoColor=white)](notebooks/train_mave_q_kaggle_colab.ipynb)
 [![Research Only](https://img.shields.io/badge/Scope-Academic%20Simulation%20Only-crimson)](#disclaimer)
 
-**Paper Title**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model ($\le$8B) Quantitative Research in Rule-Constrained Emerging Markets*  
+**Paper Title**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model (≤8B) Quantitative Research in Rule-Constrained Emerging Markets*  
 **Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher* ([@KenyaWashed](https://github.com/KenyaWashed))
 
 </div>
@@ -25,16 +25,16 @@
 
 ## 1. Core Idea & Literature Inspirations (Ý tưởng chính & Kế thừa từ các Paper)
 
-**Câu hỏi khoa học cốt lõi**: *Liệu một hệ thống đa tác tử chỉ dùng các mô hình mở cỡ nhỏ ($\le$8B — hoặc kiến trúc phân rã siêu nhẹ dưới `10M` tham số lõi cấu trúc chạy miễn phí trên Kaggle `T4 x2` / Colab `T4`) có thể **tự cải tiến quy trình nghiên cứu định lượng của chính nó** mà vẫn giữ đánh giá hoàn toàn **chống rò rỉ dữ liệu (leak-free)** trong một thị trường mới nổi kém thanh khoản và ràng buộc chặt như chứng khoán Việt Nam (HOSE, HNX, UPCoM)?*
+**Câu hỏi khoa học cốt lõi**: *Liệu một hệ thống đa tác tử cỡ nhỏ khoảng vài tỷ tham số (≤8B — hoặc kiến trúc phân rã siêu nhẹ với lõi cấu trúc dưới `10M` tham số chạy miễn phí trên Kaggle `T4 x2` / Colab `T4`) có thể **tự cải tiến quy trình nghiên cứu định lượng của chính nó** mà vẫn giữ đánh giá hoàn toàn **chống rò rỉ dữ liệu (leak-free)** trong một thị trường mới nổi kém thanh khoản và ràng buộc chặt như chứng khoán Việt Nam (HOSE, HNX, UPCoM)?*
 
 **MAVE-Q** (**M**odular **A**utonomous **V**erified **E**volution for **Q**uantitative Research) kết hợp và thu nhỏ tinh hoa từ 6 nhánh nghiên cứu mới nhất (2024–2026):
 
-| Nguồn Paper Gốc (Đã xác thực arXiv) | Cơ chế Kế thừa vào MAVE-Q | Cách Thu nhỏ / Cải tiến cho GPU Miễn phí ($\le$4B + <10M) |
+| Nguồn Paper Gốc (Đã xác thực arXiv) | Cơ chế Kế thừa vào MAVE-Q | Cách Thu nhỏ / Cải tiến cho GPU Miễn phí (≤4B + <10M) |
 | :--- | :--- | :--- |
 | **AQuA** (`arXiv:2608.12841`) | Hộp cát đánh giá niêm phong (*sealed sandbox*), ngữ pháp toán tử nhân quả cố định, bộ nhớ niềm tin (*belief memory*), chấm `sealed_test` đúng 1 lần. | Áp dụng nghiêm ngặt vi cấu trúc sàn VN (`T+2.5`, biên độ `±7%/10%/15%`, thuế bán `0.1%`, BCTC Point-in-Time) và khóa mã băm `EvaluatorSeal` SHA-256. |
 | **AIDE²** (`arXiv:2609.26457`) | Vòng lặp tự cải tiến hai cấp (*bi-level RSI*): vòng trong tìm giải pháp, vòng ngoài sửa tác tử và chọn lọc trên điểm đánh giá ẩn. | Giới hạn chỉnh sửa vòng ngoài trong **bề mặt khả biến có kiểu** (`MutableSurfaceGuard`) thay vì sửa tự do mã nguồn Python (tránh sập code & reward hacking ở model nhỏ). |
 | **Darwin Gödel Machine** (`arXiv:2505.22954`) & **ShinkaEvolve** (`arXiv:2509.19349`) | Kho lưu trữ mở các biến thể tác tử (`DGMArchive`, cân bằng *fitness + novelty*) và bộ lọc loại trùng lặp sớm. | Bổ sung dấu vân tay cấu trúc AST (`structural_fingerprint`) để chống hiện tượng *mode collapse* ở model nhỏ trước khi chạy backtest tốn kém. |
-| **HRM** (`arXiv:2506.21734`) & **TRM** (`arXiv:2510.04871`) | Mạng suy luận phân cấp 2 thang thời gian chậm ($z_H$) / nhanh ($z_L$) trong không gian ẩn chỉ vài triệu tham số. | Xây dựng **`HRMReasoner` (`3.38M` tham số, ~76 MB VRAM)**: tầng chậm $z_H$ lập kế hoạch theo chế độ thị trường VN, tầng nhanh $z_L$ chấm điểm dự đoán IC lọc ứng viên. |
+| **HRM** (`arXiv:2506.21734`) & **TRM** (`arXiv:2510.04871`) | Mạng suy luận phân cấp 2 thang thời gian chậm (`z_H`) / nhanh (`z_L`) trong không gian ẩn chỉ vài triệu tham số. | Xây dựng **`HRMReasoner` (`3.38M` tham số, ~76 MB VRAM)**: tầng chậm `z_H` lập kế hoạch theo chế độ thị trường VN, tầng nhanh `z_L` chấm điểm dự đoán IC lọc ứng viên. |
 | **MDLM / LLaDA** *(Discrete Masked Diffusion)* | Khử nhiễu song song trên chuỗi rời rạc thay vì sinh từ trái sang phải. | Xây dựng **`DiscreteASTDiffusion` (`6.36M` tham số, ~129 MB VRAM)** trên đúng 70 token DSL nhân quả: đảm bảo **100% đúng cú pháp**, đột biến nhánh con (**Subtree Infilling**) và tự cập nhật trọng số (**Reward-Weighted ReST**). |
 | **Qwen3** (`arXiv:2505.09388`) & **Bailey–López de Prado** (2014, 2018) | Mô hình mở nhỏ gọn + Purged/Embargoed Walk-Forward CV + **Deflated Sharpe Ratio (DSR)**. | Dùng `Qwen3-4B` / `1.7B` (Unsloth 4-bit QLoRA, ~2–4.5 GB VRAM) chỉ cho diễn giải giả thuyết kinh tế; kiểm định đa thử nghiệm bằng DSR & Block-Bootstrap 95% CI. |
 
@@ -154,17 +154,17 @@ File notebook chuẩn đã được cấu hình sẵn tại: **[`notebooks/train
 
 | Nền tảng Free | Phần cứng Miễn phí | Phân bổ VRAM thực đo | Khuyến nghị |
 | :--- | :--- | :--- | :---: |
-| **Kaggle Notebooks** | **Dual T4 (`T4 x2`: 2 $\times$ 16 GB VRAM)**, 30h/tuần, chạy ngầm 12h | `cuda:0`: `Qwen3-4B` (~4.5 GB) \| `cuda:1`: `AST Diffusion + HRM` (~0.21 GB) | **Khuyên dùng #1** |
+| **Kaggle Notebooks** | **Dual T4 (`T4 x2`: 2 × 16 GB VRAM)**, 30h/tuần, chạy ngầm 12h | `cuda:0`: `Qwen3-4B` (~4.5 GB) \| `cuda:1`: `AST Diffusion + HRM` (~0.21 GB) | **Khuyên dùng #1** |
 | **Google Colab** | **Single T4 (`1x 16 GB VRAM`)** | `cuda:0`: tổng đỉnh ~7.2 GB / 16 GB (tự giải phóng VRAM giữa các pha) | **Chạy tốt** *(dùng `Qwen3-1.7B` nếu muốn nhanh gấp 2x)* |
 
 **Các bước chạy trên Kaggle / Colab**:
-1. Tải file [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) lên **Kaggle** (bật Accelerator: **`GPU T4 x2`** và bật **Internet**) hoặc mở trên **Google Colab** (Runtime $\to$ **`T4 GPU`**).
+1. Tải file [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) lên **Kaggle** (bật Accelerator: **`GPU T4 x2`** và bật **Internet**) hoặc mở trên **Google Colab** (Runtime → **`T4 GPU`**).
 2. Kiểm tra link `REPO_URL` ở **Cell 2** (mặc định `https://github.com/KenyaWashed/VN_Trading_Agents.git`).
 3. Bấm **Run All** — Notebook sẽ tự động cài `unsloth` + gói lõi, chạy 21 bài test chống leakage, train **Discrete AST Diffusion (6.36M)** + **HRM Reasoner (3.38M)** + **Qwen3-4B Unsloth 4-bit QLoRA**, chạy đầy đủ đánh giá niêm phong và lưu checkpoints vào `/kaggle/working/mave_q_checkpoints`.
 
 ---
 
-### B. Chạy Full trên Máy Local (CPU / GPU) từ Phase 1 $\to$ Phase 5
+### B. Chạy Full trên Máy Local (CPU / GPU) từ Phase 1 → Phase 5
 
 ```bash
 # 1. Clone repo & cài môi trường bằng uv (hoặc dùng: pip install -e ".[dev]")
@@ -191,7 +191,7 @@ uv run python paper/verify_paper.py                             # Phase 5B: Ki�
 
 ```bash
 docker build -t mave-q-sandbox .
-docker run --rm --network=none --read-only --tmpfs /tmp -v "$(pwd)/logs:/workspace/logs" mave-q-sandbox
+docker run --rm --network=none --read-only --tmpfs /tmp -v "z_H(pwd)/logs:/workspace/logs" mave-q-sandbox
 ```
 
 ---
@@ -209,8 +209,8 @@ Kết quả dưới đây trích xuất trực tiếp từ [`paper/tables/main_r
 | Purged Walk-Forward Ridge | 0.1026 | 0.702 | 0.0781 | 0.327 | 8.7% | 0.121 |
 | Purged Walk-Forward GBDT | 0.0787 | 0.615 | 0.0427 | 0.532 | 17.5% | 0.168 |
 | Purged Temporal GRU | 0.0976 | 0.450 | 0.0720 | 0.396 | 11.5% | 0.120 |
-| Agent $v_0$ ($\le$8B, No RSI) | 0.1036 | 0.677 | 0.0910 | 1.339 | 40.1% | 0.365 |
-| Monolithic Bi-Level RSI $v^*$ ($\le$8B) | 0.1025 | 0.877 | 0.0637 | 1.432 | 38.8% | 0.105 |
+| Agent `v0` (≤8B, No RSI) | 0.1036 | 0.677 | 0.0910 | 1.339 | 40.1% | 0.365 |
+| Monolithic Bi-Level RSI `v*` (≤8B) | 0.1025 | 0.877 | 0.0637 | 1.432 | 38.8% | 0.105 |
 | **MAVE-Q Modular (`HRM + AST Diff.`)** | **0.1045** | **1.019** | 0.0539 | **1.918** | 31.0% | **0.389** |
 
 ---

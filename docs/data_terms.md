@@ -10,7 +10,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **`SyntheticVNMarketProvider`** (`provider_mode: synthetic_fixture`) | 100% locally generated stochastic microstructure fixture | EOD OHLCV, corporate splits, halts/delistings, PIT quarterly fundamentals, foreign flows, index membership | **Yes** (code is MIT; deterministic from seed `20261123`) | **VERIFIED** (human-authored mathematical generator in `src/vn_rsi/data/providers.py`) |
 | **`VnstockDataProvider`** (`provider_mode: live_vnstock`) | Open-source Python wrapper (`thinh-vu/vnstock`) querying public web endpoints of Vietnamese brokers (VCI/Vietcap, TCBS) | EOD OHLCV, company overview, basic financial ratios | **NO — Do NOT redistribute raw data** | **UNVERIFIED** for commercial/redistribution use. Broker public chart endpoints are provided for personal viewing; automated bulk redistribution is generally restricted by broker ToS. |
-| **HOSE / HNX / VSDC / SSC Regulatory Rules** (`configs/market_rules.yaml`) | Public statutory circulars & exchange trading rules | Price bands ($\pm 7\%/10\%/15\%$), board lot (`100`), settlement (`T+2.5`), sell tax (`0.1%`), FOL (`30%/49%`) | Yes (public regulatory facts) | **VERIFIED** against SSC / HNX / Circular 111/2013/TT-BTC summaries (exact proprietary broker slippage curve marked `verified: false` in YAML). |
+| **HOSE / HNX / VSDC / SSC Regulatory Rules** (`configs/market_rules.yaml`) | Public statutory circulars & exchange trading rules | Price bands (z_H\pm 7\%/10\%/15\%z_H), board lot (`100`), settlement (`T+2.5`), sell tax (`0.1%`), FOL (`30%/49%`) | Yes (public regulatory facts) | **VERIFIED** against SSC / HNX / Circular 111/2013/TT-BTC summaries (exact proprietary broker slippage curve marked `verified: false` in YAML). |
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## 1. Selected System Architecture: **VN-RSI**
 
-We synthesize **AQuA** (`arXiv:2608.12841`), **AIDE$^2$** (`arXiv:2609.26457`), **Darwin Gödel Machine** (`arXiv:2505.22954`), and **ShinkaEvolve** (`arXiv:2509.19349`) into a leak-free bi-level multi-agent architecture specifically engineered for **$\le$8B open models** and **Vietnamese equity microstructure (HOSE / HNX / UPCoM)**:
+We synthesize **AQuA** (`arXiv:2608.12841`), **AIDEz_H^2z_H** (`arXiv:2609.26457`), **Darwin Gödel Machine** (`arXiv:2505.22954`), and **ShinkaEvolve** (`arXiv:2509.19349`) into a leak-free bi-level multi-agent architecture specifically engineered for **≤8B open models** and **Vietnamese equity microstructure (HOSE / HNX / UPCoM)**:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -38,13 +38,13 @@ We synthesize **AQuA** (`arXiv:2608.12841`), **AIDE$^2$** (`arXiv:2609.26457`), 
 
 ---
 
-## 2. Explicit Architectural Trade-Offs (Scaling Frontier Ideas Down to $\le$8B)
+## 2. Explicit Architectural Trade-Offs (Scaling Frontier Ideas Down to ≤8B)
 
-| Design Dimension | Frontier LLM Approach (70B–600B+) | VN-RSI $\le$8B Design | Trade-Off Rationale |
+| Design Dimension | Frontier LLM Approach (70B–600B+) | VN-RSI ≤8B Design | Trade-Off Rationale |
 | :--- | :--- | :--- | :--- |
 | **Inner Search Space** | Free-form Python feature/model code (*AIDE*, *RD-Agent*) | **Typed Causal Operator AST (`FactorSpec`)** | Loses exotic custom stateful indicators, but achieves **0% runtime syntax crashes** and **structural immunity to look-ahead leakage** on 8B models. |
-| **Outer Self-Modification** | Raw git diffs on Python agent source (*DGM*, *AIDE$^2$*) | **Declared Mutable Genome Whitelist (`MutableSurfaceGuard`)** | Cannot invent brand-new Python classes mid-run, but eliminates silent evaluator tampering and catastrophic self-breakage common in $\le$8B code edits. |
-| **Self-Correction** | Unstructured verbal self-critique (*Self-Refine*) | **Compiler/Schema Error Retries + Deterministic AST Verifier Best-of-$N$** | Replaces noisy 8B self-opinion with exact mathematical & novelty verification. |
+| **Outer Self-Modification** | Raw git diffs on Python agent source (*DGM*, *AIDEz_H^2z_H*) | **Declared Mutable Genome Whitelist (`MutableSurfaceGuard`)** | Cannot invent brand-new Python classes mid-run, but eliminates silent evaluator tampering and catastrophic self-breakage common in ≤8B code edits. |
+| **Self-Correction** | Unstructured verbal self-critique (*Self-Refine*) | **Compiler/Schema Error Retries + Deterministic AST Verifier Best-of-z_HNz_H** | Replaces noisy 8B self-opinion with exact mathematical & novelty verification. |
 | **Long-Horizon Memory** | 32k–128k raw trajectory logs in prompt | **`<400`-token `EpistemicBeliefMemory` with decay & contradiction penalty** | Keeps prompts well inside 4k tokens (fast CPU/24GB-GPU inference, high instruction adherence on 8B models). |
 | **Sample Efficiency** | Thousands of evolutionary rollouts (*AlphaEvolve*) | **ShinkaEvolve-style AST Fingerprint Novelty Filter + Paired Multi-Seed Gate** | Prevents 8B mode-collapse duplicates before running costly portfolio simulations. |
 
@@ -53,8 +53,8 @@ We synthesize **AQuA** (`arXiv:2608.12841`), **AIDE$^2$** (`arXiv:2609.26457`), 
 ## 3. Five Candidate Paper Contributions (Ranked by Novelty & Feasibility)
 
 1. **[Rank 1 — Highest Novelty + High Feasibility, Primary Paper Claim]**
-   **Trustworthy Bi-Level RSI Under Extreme Microstructure & Parameter Constraints ($\le$8B)**:
-   Demonstrating when and how a $\le$8B open-model multi-agent research system can recursively improve its own search policy, prompt priors, and memory dynamics inside a SHA-256 sealed sandbox—and quantifying the exact failure modes (reward hacking attempts, mode collapse without novelty filtering, multiple-testing inflation via Deflated Sharpe Ratio) in an illiquid, rule-constrained emerging market (Vietnam's T+2.5 settlement and $\pm 7\%/10\%/15\%$ price limits).
+   **Trustworthy Bi-Level RSI Under Extreme Microstructure & Parameter Constraints (≤8B)**:
+   Demonstrating when and how a ≤8B open-model multi-agent research system can recursively improve its own search policy, prompt priors, and memory dynamics inside a SHA-256 sealed sandbox—and quantifying the exact failure modes (reward hacking attempts, mode collapse without novelty filtering, multiple-testing inflation via Deflated Sharpe Ratio) in an illiquid, rule-constrained emerging market (Vietnam's T+2.5 settlement and z_H\pm 7\%/10\%/15\%z_H price limits).
 2. **[Rank 2 — High Feasibility, Strong Empirical Workshop Contribution]**
    **Microstructure-Aware Leakage & Execution Benchmark for Emerging Equities**:
    Quantifying the "illusion gap" between naive frictionless backtests (static universe, period-end fundamentals, unconstrained daily rebalancing) vs. leak-free Vietnamese market simulation (delisted stocks, announcement-date PIT joins, ceiling/floor unfillable locks, T+2.5 holding locks, 0.1% statutory sell tax + square-root illiquidity impact).
@@ -65,5 +65,5 @@ We synthesize **AQuA** (`arXiv:2608.12841`), **AIDE$^2$** (`arXiv:2609.26457`), 
    **Closed-Loop ReST / QLoRA Self-Training on Sealed Search Trajectories**:
    Using verified search-zone `(FalsifiableHypothesis -> FactorSpec)` trajectories exported by our Librarian (`logs/sft_verified_trajectories.jsonl`) to LoRA-adapt `Qwen3-8B` across outer iterations without ever touching validation/test data.
 5. **[Rank 5 — Focused Domain Study]**
-   **Cross-Regime & Cross-Exchange OOD Transfer (`VN30` HOSE $\to$ `VN100`/HNX/UPCoM)**:
-   Testing whether research policies evolved on liquid large-cap HOSE names generalize zero-shot to wider price bands ($\pm 10\%, \pm 15\%$) and thinner liquidity tiers, or degrade predictably under higher spread/impact drag.
+   **Cross-Regime & Cross-Exchange OOD Transfer (`VN30` HOSE z_H\toz_H `VN100`/HNX/UPCoM)**:
+   Testing whether research policies evolved on liquid large-cap HOSE names generalize zero-shot to wider price bands (z_H\pm 10\%, \pm 15\%z_H) and thinner liquidity tiers, or degrade predictably under higher spread/impact drag.

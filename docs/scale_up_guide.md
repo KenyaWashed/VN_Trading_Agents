@@ -5,7 +5,7 @@
 | Tier | Hardware Spec | Configuration (`configs/llm.yaml` & `configs/data.yaml`) | Use Case |
 | :--- | :--- | :--- | :--- |
 | **Tier 0: CPU / Laptop Fallback** *(Verified on current machine)* | 4+ CPU cores, 16 GB RAM, 0 GPU | `active_backend: "local_8b_sim_or_ollama"` (or `llamacpp` GGUF Q4_K_M on CPU), `configured_vram_gb: 0.0`, `universe_tier: "vn30"` | Fast CI, leakage tests, unit tests, deterministic pipeline & paper build (<2 min end-to-end). |
-| **Tier 1: Minimum Recommended GPU** *(Target Paper Setup)* | 1x 24 GB GPU (e.g., RTX 3090 / RTX 4090 / L4), 32 GB RAM | Serve `Qwen3-8B` (4-bit AWQ/GGUF) via `Ollama` or `vLLM`; set `active_backend: "ollama"` or `"vllm"`, `configured_vram_gb: 24.0`, `universe_tier: "vn100"` | Full live-weight $\le$8B multi-agent + bi-level RSI experiments + QLoRA trajectory fine-tuning. |
+| **Tier 1: Minimum Recommended GPU** *(Target Paper Setup)* | 1x 24 GB GPU (e.g., RTX 3090 / RTX 4090 / L4), 32 GB RAM | Serve `Qwen3-8B` (4-bit AWQ/GGUF) via `Ollama` or `vLLM`; set `active_backend: "ollama"` or `"vllm"`, `configured_vram_gb: 24.0`, `universe_tier: "vn100"` | Full live-weight ≤8B multi-agent + bi-level RSI experiments + QLoRA trajectory fine-tuning. |
 | **Tier 2: Multi-GPU / Lab Server** *(Scale-Up & Teacher Ablations)* | 2x–4x 48–80 GB GPUs (A6000 / A100 / H100), 128 GB RAM | Serve `Qwen3-8B` FP16 on GPU 0 via `vLLM` continuous batching; optionally enable `teacher_backend.enabled: true` (`Qwen2.5-72B-Instruct` AWQ) on GPUs 1–2 for teacher upper-bound ablation ONLY; set `universe_tier: "all_liquid"` | Full HOSE+HNX+UPCoM liquid universe (`220+` tickers), 15+ outer RSI iterations, 10+ paired seeds. |
 
 ---
@@ -33,7 +33,7 @@
    ```
 3. Re-run `make agent rsi report` — zero Python changes required.
 
-### 2.2 Scaling Universe (`VN30` $\to$ `VN100` $\to$ `All Liquid`)
+### 2.2 Scaling Universe (`VN30` z_H\toz_H `VN100` z_H\toz_H `All Liquid`)
 Edit `configs/data.yaml`:
 ```yaml
 universe_tier: "all_liquid"   # expands from 30 -> 220 symbols across HOSE, HNX, UPCoM
