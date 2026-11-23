@@ -132,19 +132,28 @@ class OrthogonalRewardEngine:
 
         search_eval = self.evaluator.evaluate_factor(spec, zone="search", run_id=run_id)
         raw_ic = float(search_eval.metrics["rank_ic"])
+        search_icir = float(search_eval.metrics["icir"])
         search_sharpe = float(search_eval.metrics["net_sharpe"])
         daily_turn = float(search_eval.metrics["daily_turnover"])
 
-        # Composite Orthogonal Marginal Reward for diffu-GRPO
-        corr_pen = 0.14 * max(0.0, max_corr - 0.35)
+        # Cross-regime stability on `search` zone ONLY (positive IC across chronological sub-folds prevents regime overfit)
+        fold_ics = [fm["rank_ic"] for fm in search_eval.fold_metrics] if search_eval.fold_metrics else [raw_ic]
+        fold_pos_frac = float(np.mean([1.0 if x > 0.0 else 0.0 for x in fold_ics]))
+        fold_sharpe_std = float(search_eval.fold_std.get("net_sharpe", 0.0))
+
+        # Composite Orthogonal Marginal Reward for diffu-GRPO (rewards regime stability + orthogonal alpha - turnover)
+        corr_pen = 0.18 * max(0.0, max_corr - 0.30)
         turn_pen = self.turnover_penalty_weight * daily_turn
-        ortho_reward = ortho_ic + 0.08 * search_sharpe - corr_pen - turn_pen
+        stability_bonus = 0.025 * fold_pos_frac - 0.015 * min(2.0, fold_sharpe_std)
+        ortho_reward = ortho_ic + 0.08 * search_sharpe + stability_bonus - corr_pen - turn_pen
 
         return {
             "orthogonal_reward": round(float(ortho_reward), 5),
             "ortho_rank_ic": round(ortho_ic, 5),
             "search_rank_ic": round(raw_ic, 5),
+            "search_icir": round(search_icir, 4),
             "search_net_sharpe": round(search_sharpe, 4),
+            "search_fold_pos_frac": round(fold_pos_frac, 4),
             "daily_turnover": round(daily_turn, 5),
             "max_corr": round(max_corr, 4),
             "vec": vec,
@@ -388,6 +397,7 @@ class FrontierCombatArena:
         family_ic_hist: dict[str, list[float]] = {f: [] for f in MECHANISM_FAMILIES}
 
         best_val_outcome: EvaluationOutcome | None = None
+        best_val_selection_score = -1e9
         best_specs_snapshot: list[FactorSpec] = []
         best_weights_snapshot: list[float] = []
         best_ci_vs_frontier: dict[str, float] = {}
@@ -472,13 +482,18 @@ class FrontierCombatArena:
                     }
                 )
 
-                # Admit genuinely orthogonal, positive-alpha low-turnover factors into the evolving ensemble
+                # Admit genuinely orthogonal, regime-stable, low-turnover positive-alpha factors (search-zone ONLY!)
                 if (
-                    ortho["search_rank_ic"] > 0.015
-                    and ortho["search_net_sharpe"] > 0.15
+                    ortho["search_rank_ic"] > 0.020
+                    and ortho["search_icir"] >= 1.5
+                    and ortho["search_fold_pos_frac"] >= 0.75
+                    and ortho["search_net_sharpe"] > 0.25
+                    and ortho["daily_turnover"] <= 0.14
                     and ortho["max_corr"] <= self.ortho_engine.max_pairwise_corr
                 ):
-                    weight = max(0.05, float(ortho["orthogonal_reward"]) + 0.05) / (1.0 + 2.0 * float(ortho["daily_turnover"]))
+                    weight = max(0.05, float(ortho["search_icir"]) * 0.05 + float(ortho["orthogonal_reward"])) / (
+                        1.0 + 4.0 * float(ortho["daily_turnover"])
+                    )
                     ensemble_specs.append(cand)
                     ensemble_weights.append(weight)
                     ensemble_vecs.append(ortho["vec"])
@@ -549,7 +564,15 @@ class FrontierCombatArena:
             margin = float(val_out.metrics["net_sharpe"]) - strongest_val_sharpe
             leads = margin > 0.0
 
-            if best_val_outcome is None or val_out.metrics["net_sharpe"] > best_val_outcome.metrics["net_sharpe"]:
+            # Stability- & turnover-penalized scalar validation objective (prevents chasing brittle high-turnover spikes)
+            val_sel_score = (
+                float(val_out.metrics["net_sharpe"])
+                + 3.0 * float(val_out.metrics["rank_ic"])
+                - 0.12 * float(val_out.fold_std.get("net_sharpe", 0.0))
+                - 1.5 * float(val_out.metrics["daily_turnover"])
+            )
+            if best_val_outcome is None or val_sel_score > best_val_selection_score:
+                best_val_selection_score = val_sel_score
                 best_val_outcome = val_out
                 best_specs_snapshot = list(ensemble_specs)
                 best_weights_snapshot = list(ensemble_weights)

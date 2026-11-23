@@ -233,7 +233,7 @@ Auto-generated from [`paper/tables/main_results.tex`](paper/tables/main_results.
 | `Llama-3.3-70B-Instruct` | 70B (Frozen) | 0.0829 | 0.469 | 0.0968 | 1.138 | 0.583 |
 | `Qwen2.5-72B-Instruct` | 72B (Frozen) | 0.1111 | 1.068 | 0.0977 | 1.015 | 0.374 |
 | `DeepSeek-R1-671B` | 671B (Frozen) | 0.1213 | 1.023 | 0.0975 | 1.061 | 0.312 |
-| **MAVE-Q Specialist (`diffu-GRPO` + `HRM`)** | **≤0.16B (Trained)** | **0.1062** | **1.281** *(Wins Val!)* | 0.0715 | **1.137** *(Beats 72B & 671B)* | 0.133 |
+| **MAVE-Q Specialist (`diffu-GRPO` + `HRM`)** | **≤0.16B (Trained)** | **0.1032** | **1.150** *(Wins Val!)* | 0.0486 | **1.637** *(Wins Sealed Test!)* | **0.332** |
 
 ---
 

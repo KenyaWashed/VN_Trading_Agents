@@ -652,40 +652,40 @@
       "table": "frontier_combat",
       "row": "mave_q_champion",
       "col": "val_rank_ic",
-      "formatted": "0.1062",
-      "raw": 0.10616,
+      "formatted": "0.1032",
+      "raw": 0.10316,
       "run_id": "phase5_frontier_combat"
     },
     {
       "table": "frontier_combat",
       "row": "mave_q_champion",
       "col": "val_sharpe",
-      "formatted": "1.281",
-      "raw": 1.2814,
+      "formatted": "1.150",
+      "raw": 1.1503,
       "run_id": "phase5_frontier_combat"
     },
     {
       "table": "frontier_combat",
       "row": "mave_q_champion",
       "col": "test_rank_ic",
-      "formatted": "0.0715",
-      "raw": 0.0715,
+      "formatted": "0.0486",
+      "raw": 0.04863,
       "run_id": "phase5_frontier_combat"
     },
     {
       "table": "frontier_combat",
       "row": "mave_q_champion",
       "col": "test_sharpe",
-      "formatted": "1.137",
-      "raw": 1.137,
+      "formatted": "1.637",
+      "raw": 1.6375,
       "run_id": "phase5_frontier_combat"
     },
     {
       "table": "frontier_combat",
       "row": "mave_q_champion",
       "col": "test_dsr",
-      "formatted": "0.133",
-      "raw": 0.1333,
+      "formatted": "0.332",
+      "raw": 0.3317,
       "run_id": "phase5_frontier_combat"
     }
   ]

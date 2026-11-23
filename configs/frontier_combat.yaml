@@ -12,15 +12,15 @@ specialist_preset: "auto"
 
 # Test-Time Compute Scaling + Orthogonal diffu-GRPO Hyperparameters
 combat_loop:
-  max_rounds: 10                        # Keep evolving & self-training until beating strongest Frontier Challenger
+  max_rounds: 8                         # Keep evolving & self-training until beating strongest Frontier Challenger
   candidates_per_round_latent: 36       # Latent Best-of-36 sampled by AST Diffusion & pruned by HRM z_L
   top_k_evaluate_on_search: 7           # Top-7 pruned candidates evaluated on search zone per round
   diffu_grpo_epochs_per_round: 12       # Critic-free diffu-GRPO updates on orthogonal marginal rewards
   hrm_epochs_per_round: 12              # Online updates to HRM z_L surrogate & z_H regime policy
-  max_ensemble_factors: 8               # Orthogonalized low-correlation portfolio of causal factors
-  max_pairwise_corr: 0.58               # Reject redundant factors correlated above 0.58 with existing ensemble
-  turnover_penalty_weight: 0.35         # Penalize high-turnover factors (protects against 0.1% VN sell tax)
-  win_p_value_threshold: 0.15           # Paired block-bootstrap one-sided p-value target vs strongest Frontier model
+  max_ensemble_factors: 5               # Parsimonious orthogonal portfolio (avoids over-diversifying into noisy factors)
+  max_pairwise_corr: 0.50               # Strict orthogonality cap across ensemble factors
+  turnover_penalty_weight: 0.45         # Strong turnover discipline for Vietnamese 0.1% sell tax + T+2.5
+  win_p_value_threshold: 0.12           # Paired block-bootstrap one-sided p-value target vs strongest Frontier model
 
 # Frontier Challengers (50B - 671B+ Models)
 # Automatically uses live OpenAI-compatible API if env var is set, otherwise runs calibrated frozen-frontier baseline.
