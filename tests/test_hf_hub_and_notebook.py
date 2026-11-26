@@ -20,7 +20,11 @@ from vn_rsi.veteran.preference_builder import (
     _format_chat_sft_text,
     _resolve_lora_target_modules,
 )
-from vn_rsi.veteran.reasoning_engine import VeteranReasoningEngine
+from vn_rsi.veteran.reasoning_engine import (
+    MarketContextSnapshot,
+    VeteranReasoningEngine,
+    strip_think_tags,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -111,6 +115,14 @@ def test_qlora_compatibility_helpers_and_adapter_base_inference(tmp_path: Path) 
     )
     eng = VeteranReasoningEngine(adapter_dir=adapter_dir, base_model_id=None)
     assert eng.base_model_id == "Qwen/Qwen3-1.7B"
+
+    # Verify `<think>` stripping and natural Vietnamese output (private persona, no bragging)
+    assert strip_think_tags("<think>internal thoughts</think>\nNhận định FPT tích cực.") == "Nhận định FPT tích cực."
+    resp = eng.analyze(MarketContextSnapshot(as_of_date="2024-06-28", symbol="FPT", language="vi"))
+    nat_vi = resp.render_natural_vietnamese()
+    assert "Nhận định cổ phiếu FPT" in nat_vi
+    assert "10 năm kinh nghiệm" not in nat_vi
+    assert "<think>" not in nat_vi
 
 
 def test_hf_hub_pusher_repo_normalization_and_upload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

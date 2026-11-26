@@ -16,11 +16,63 @@ Every response follows the 5-step Veteran CIO Protocol:
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+# Private system persona: enriches reasoning depth implicitly without ever boasting about years of experience.
+PRIVATE_VETERAN_SYSTEM_PROMPT = (
+    "Bạn là chuyên viên phân tích và quản lý danh mục cổ phiếu Việt Nam dày dặn thực chiến. "
+    "Luôn đánh giá kỷ luật theo bối cảnh thị trường, dòng tiền, nền tảng tài chính đã công bố (PIT), "
+    "và rủi ro thực tế tại thị trường Việt Nam (chu kỳ T+2.5, biên độ trần/sàn, thanh khoản, bẫy kéo xả). "
+    "Trả lời hoàn toàn bằng tiếng Việt tự nhiên, mạch lạc, súc tích, đi thẳng vào nhận định và hành động. "
+    "Tuyệt đối không in phần suy nghĩ nội bộ (<think>), không trộn tiếng Anh thừa, "
+    "và không tự giới thiệu hay nhắc đến số năm kinh nghiệm."
+)
+
+_THINK_TAG_RE = re.compile(r"<think>.*?</think>\s*", flags=re.DOTALL | re.IGNORECASE)
+
+
+def strip_think_tags(text: str) -> str:
+    """Remove any internal `<think>...</think>` reasoning blocks emitted by reasoning-capable models."""
+    cleaned = _THINK_TAG_RE.sub("", text)
+    if "<think>" in cleaned.lower():
+        # If generation truncated before closing `</think>`, drop the incomplete `<think>` prefix
+        idx = cleaned.lower().find("<think>")
+        cleaned = cleaned[:idx].strip()
+    return cleaned.strip()
+
+
+def apply_no_think_chat_template(
+    tok: Any,
+    messages: list[dict[str, str]],
+    add_generation_prompt: bool,
+) -> str:
+    """Render chat messages with `enable_thinking=False` when supported (disables Qwen3 `<think>` blocks)."""
+    if getattr(tok, "chat_template", None):
+        for extra in ({"enable_thinking": False}, {}):
+            try:
+                rendered = tok.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=add_generation_prompt,
+                    **extra,
+                )
+                if isinstance(rendered, str) and rendered.strip():
+                    return rendered
+            except TypeError:
+                continue
+            except Exception:
+                break
+    chunks: list[str] = []
+    for msg in messages:
+        chunks.append(f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>")
+    if add_generation_prompt:
+        chunks.append("<|im_start|>assistant\n")
+    return "\n".join(chunks)
 
 
 @dataclass
@@ -77,24 +129,65 @@ class VeteranReasoningResponse:
     backend_used: str = "neuro_symbolic_veteran_core"
     slm_generated_commentary: str = ""
 
+    def render_natural_vietnamese(self) -> str:
+        """Render fluent, natural Vietnamese analysis without English labels or meta-persona bragging."""
+        regime_vi = {
+            "Bull_Expansion": "tăng trưởng thuận lợi",
+            "Sideways_Rotational": "đi ngang phân hóa",
+            "Bear_Crash": "giảm mạnh, áp lực bán cao",
+            "High_Vol_Liquidity_Crunch": "biến động mạnh, căng thẳng thanh khoản",
+        }.get(self.regime_label, self.regime_label)
+        action_vi = {
+            "BUY_HIGH_CONVICTION": "Ưu tiên giải ngân trọng tâm",
+            "BUY_MODERATE": "Giải ngân thăm dò có kiểm soát",
+            "HOLD_DEFENSIVE": "Nắm giữ phòng thủ, hạn chế đảo hàng",
+            "REDUCE_OR_AVOID": "Đứng ngoài hoặc hạ tỷ trọng",
+            "CASH_SHIELD": "Ưu tiên giữ tiền mặt, phòng thủ tuyệt đối",
+        }.get(self.action, self.action)
+        risk_vi_map = {
+            "pit_announcement_lag_trap": "báo cáo tài chính chưa công bố chính thức (dễ dính bẫy số liệu sớm)",
+            "t25_floor_lock_trap": "nguy cơ mất thanh khoản / kẹt giá sàn trong chu kỳ T+2.5",
+            "ceiling_unfillable_chase_trap": "cổ phiếu áp sát giá trần, rủi ro đu đỉnh và khó khớp lệnh",
+            "blowoff_bull_trap_t25_supply": "tăng nóng kèm đột biến khối lượng, dễ gặp áp lực xả khi hàng T+2.5 về",
+            "foreign_distribution_pull_and_dump": "khối ngoại bán ròng mạnh trong khi giá bị kéo lên (dấu hiệu phân phối)",
+            "distress_delisting_halt_risk": "đà giảm sâu kéo dài, tiềm ẩn rủi ro doanh nghiệp hoặc bị hạn chế giao dịch",
+            "intraday_whipsaw_volatility_spike": "biên độ rung lắc trong phiên quá lớn kèm thanh khoản bất thường",
+            "dead_cat_bounce_macro_trap": "nhịp hồi kỹ thuật ngắn trên nền thị trường vẫn còn rủi ro rơi tiếp",
+        }
+        if self.detected_hidden_risks:
+            risk_text = "; ".join(risk_vi_map.get(r, r) for r in self.detected_hidden_risks)
+        else:
+            risk_text = "chưa xuất hiện dấu hiệu kẹt thanh khoản, bán tháo hay bẫy kéo xả đáng ngại"
+
+        return (
+            f"Nhận định cổ phiếu {self.symbol} (ngày {self.as_of_date}):\n\n"
+            f"- Bối cảnh thị trường: Thị trường chung đang ở trạng thái {regime_vi}. {self.step1_regime_diagnosis}\n"
+            f"- Góc nhìn cổ phiếu: {self.step2_economic_hypothesis}\n"
+            f"- Rủi ro cần dè chừng (T+2.5 & thanh khoản): {risk_text}. {self.step3_premortem_devils_advocate}\n"
+            f"- Kế hoạch đi vốn & quản trị rủi ro: {action_vi}, tỷ trọng phù hợp khoảng {self.recommended_weight_pct:.1f}% tài khoản "
+            f"(xác suất khả quan ước tính {self.calibrated_win_prob:.0%}). "
+            f"Mức cắt lỗ kỷ luật {self.stop_loss_pct:.1%} và mục tiêu chốt lời +{self.take_profit_pct:.1%}.\n"
+            f"- Kết luận: {self.step5_executive_brief}"
+        )
+
     def render_markdown(self) -> str:
         slm_block = (
-            f"\n**Fine-Tuned SLM Commentary (`{self.backend_used}`)**:\n{self.slm_generated_commentary}\n"
+            f"\n**Phân tích bổ sung từ mô hình ngôn ngữ đã tinh chỉnh**:\n{self.slm_generated_commentary}\n"
             if self.slm_generated_commentary
             else ""
         )
         return (
-            f"### Veteran CIO Analysis — `{self.symbol}` ({self.as_of_date})\n"
-            f"- **Regime**: `{self.regime_label}` | **Action**: `{self.action}` | "
-            f"**Target Weight**: `{self.recommended_weight_pct:.1f}%` | "
-            f"**Calibrated P(Outperform)**: `{self.calibrated_win_prob:.2%}`\n"
-            f"- **Risk Bounds**: Stop-Loss `{self.stop_loss_pct:.1%}` | Take-Profit `+{self.take_profit_pct:.1%}`\n"
-            f"- **Hidden Risks Flagged**: {', '.join(self.detected_hidden_risks) if self.detected_hidden_risks else 'None elevated'}\n\n"
-            f"1. **Chẩn đoán Chế độ & Vi cấu trúc (Regime & Microstructure)**: {self.step1_regime_diagnosis}\n"
-            f"2. **Giả thuyết Kinh tế Định lượng (Quant Hypothesis)**: {self.step2_economic_hypothesis}\n"
-            f"3. **Phản biện Pre-Mortem Kịch bản Xấu nhất (Devil's Advocate)**: {self.step3_premortem_devils_advocate}\n"
-            f"4. **Tỷ trọng & Cổng Rủi ro T+2.5 (Sizing & Risk Gate)**: {self.step4_sizing_and_risk_gate}\n"
-            f"5. **Kết luận Hành động (Executive Brief)**: {self.step5_executive_brief}\n"
+            f"### Phân tích cổ phiếu `{self.symbol}` ({self.as_of_date})\n"
+            f"- **Trạng thái**: `{self.regime_label}` | **Hành động**: `{self.action}` | "
+            f"**Tỷ trọng mục tiêu**: `{self.recommended_weight_pct:.1f}%` | "
+            f"**Xác suất khả quan**: `{self.calibrated_win_prob:.2%}`\n"
+            f"- **Quản trị rủi ro**: Cắt lỗ `{self.stop_loss_pct:.1%}` | Chốt lời `+{self.take_profit_pct:.1%}`\n"
+            f"- **Rủi ro cảnh báo**: {', '.join(self.detected_hidden_risks) if self.detected_hidden_risks else 'Chưa phát hiện rủi ro nghiêm trọng'}\n\n"
+            f"1. **Chẩn đoán Chế độ & Vi cấu trúc**: {self.step1_regime_diagnosis}\n"
+            f"2. **Luận điểm Định lượng**: {self.step2_economic_hypothesis}\n"
+            f"3. **Phản biện Pre-Mortem (Kịch bản xấu T+2.5)**: {self.step3_premortem_devils_advocate}\n"
+            f"4. **Đi vốn & Quản trị Rủi ro**: {self.step4_sizing_and_risk_gate}\n"
+            f"5. **Kết luận Hành động**: {self.step5_executive_brief}\n"
             f"{slm_block}"
         )
 
@@ -199,37 +292,41 @@ class VeteranReasoningEngine:
             self._slm_model = None
             return False
 
-    def generate_slm_commentary(self, ctx: MarketContextSnapshot, max_new_tokens: int = 320) -> str:
-        """Generate natural-language synthesis from the fine-tuned open-source LoRA/DPO adapter."""
+    def generate_slm_commentary(self, ctx: MarketContextSnapshot, max_new_tokens: int = 512) -> str:
+        """Generate natural Vietnamese synthesis from the fine-tuned open-source LoRA/DPO adapter (no `<think>`)."""
         if not self._try_load_slm() or self._slm_model is None or self._slm_tok is None:
             return ""
         try:
             import torch
 
+            q_text = ctx.user_question or f"Đánh giá cơ hội và rủi ro với cổ phiếu {ctx.symbol} ở thời điểm hiện tại."
+            pit_desc = "đã công bố" if ctx.pit_is_announced else "chưa công bố chính thức"
             prompt = (
-                f"[Date={ctx.as_of_date} | Symbol={ctx.symbol} ({ctx.exchange})] "
-                f"Mkt20d={ctx.mkt_r20:+.1%}, MktDD60={ctx.mkt_dd60:+.1%}, Breadth={ctx.breadth_20:.0%}, "
-                f"VolRatio={ctx.vol_ratio:.2f}, TraumaProb={ctx.trauma_prob:.0%}, "
-                f"Stock3d={ctx.stock_ret3:+.1%}, Stock20d={ctx.stock_ret20:+.1%}, TShock={ctx.turnover_shock_20d:.2f}x, "
-                f"Foreign5d={ctx.foreign_net_ratio_5d:+.2%}, PIT_Announced={ctx.pit_is_announced}, "
-                f"DistFloor={ctx.dist_to_floor:.1%}, DistCeil={ctx.dist_to_ceiling:.1%}. "
-                f"{ctx.user_question or 'Hãy phân tích theo quy trình 5 bước của Chuyên gia Đầu tư 10 năm kinh nghiệm.'}"
+                f"Dữ liệu thị trường ngày {ctx.as_of_date} cho mã {ctx.symbol} (sàn {ctx.exchange}): "
+                f"VN-Index 20 phiên {ctx.mkt_r20:+.1%}, sụt giảm từ đỉnh 60 phiên {ctx.mkt_dd60:+.1%}, "
+                f"độ rộng thị trường {ctx.breadth_20:.0%}, biến động {ctx.vol_ratio:.2f}x, rủi ro lịch sử {ctx.trauma_prob:.0%}; "
+                f"cổ phiếu 3 phiên {ctx.stock_ret3:+.1%}, 20 phiên {ctx.stock_ret20:+.1%}, "
+                f"đột biến thanh khoản {ctx.turnover_shock_20d:.2f}x, dòng tiền ngoại 5 phiên {ctx.foreign_net_ratio_5d:+.2%}, "
+                f"BCTC {pit_desc}, cách giá sàn {ctx.dist_to_floor:.1%}, cách giá trần {ctx.dist_to_ceiling:.1%}. "
+                f"Câu hỏi: {q_text}"
             )
-            messages = [{"role": "user", "content": prompt}]
-            if getattr(self._slm_tok, "chat_template", None):
-                text_in = self._slm_tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-            else:
-                text_in = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            messages = [
+                {"role": "system", "content": PRIVATE_VETERAN_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ]
+            text_in = apply_no_think_chat_template(self._slm_tok, messages, add_generation_prompt=True)
             inputs = self._slm_tok(text_in, return_tensors="pt").to(self._slm_model.device)
             with torch.no_grad():
                 out_ids = self._slm_model.generate(
                     **inputs,
                     max_new_tokens=max_new_tokens,
                     do_sample=False,
+                    repetition_penalty=1.08,
                     pad_token_id=self._slm_tok.eos_token_id,
                 )
             gen_ids = out_ids[0][inputs["input_ids"].shape[-1] :]
-            return str(self._slm_tok.decode(gen_ids, skip_special_tokens=True)).strip()
+            raw_text = str(self._slm_tok.decode(gen_ids, skip_special_tokens=True))
+            return strip_think_tags(raw_text)
         except Exception:
             return ""
 
@@ -335,61 +432,63 @@ class VeteranReasoningEngine:
             sl_pct = -0.055
             tp_pct = 0.09
 
-        analog_txt = ""
+        analog_txt_vi = ""
+        analog_txt_en = ""
         if ctx.nearest_analogs:
             top_a = ctx.nearest_analogs[0]
-            analog_txt = (
+            a_ret = float(top_a.get("realized_fwd_5d_mkt_ret", 0.0))
+            analog_txt_vi = f" Giai đoạn lịch sử tương đồng gần nhất ({top_a.get('analog_date')}) diễn biến {a_ret:+.2%} trong 5 phiên kế tiếp."
+            analog_txt_en = (
                 f" Nearest historical analog `{top_a.get('analog_date')}` saw "
-                f"{float(top_a.get('realized_fwd_5d_mkt_ret', 0.0)):+.2%} over the next 5 sessions."
+                f"{a_ret:+.2%} over the next 5 sessions."
             )
 
         if ctx.language == "vi":
             s1 = (
-                f"Thị trường ở chế độ **{regime}** (20d={ctx.mkt_r20:+.1%}, 5d={ctx.mkt_r5:+.1%}, "
-                f"độ rộng={ctx.breadth_20:.0%}, tỷ số biến động={ctx.vol_ratio:.2f}x, "
-                f"xác suất chấn thương lịch sử={ctx.trauma_prob:.0%}).{analog_txt}"
+                f"Thị trường chung ghi nhận mức biến động 20 phiên {ctx.mkt_r20:+.1%}, 5 phiên {ctx.mkt_r5:+.1%}, "
+                f"độ rộng {ctx.breadth_20:.0%}, độ biến động tương đối {ctx.vol_ratio:.2f}x và xác suất áp lực giảm mạnh {ctx.trauma_prob:.0%}.{analog_txt_vi}"
             )
             s2 = (
-                f"Mã `{ctx.symbol}` (sàn {ctx.exchange}, biên độ ±{band:.0%}): động lượng 20 phiên {ctx.stock_ret20:+.1%}, "
-                f"dòng tiền khối ngoại 5d={ctx.foreign_net_ratio_5d:+.2%}, "
-                f"điểm chất lượng-định giá PIT={'đã công bố' if ctx.pit_is_announced else 'CHƯA công bố (bị loại chống look-ahead)'} "
-                f"(z={eff_pit_z:+.2f}), đột biến thanh khoản={ctx.turnover_shock_20d:.2f}x."
+                f"Cổ phiếu {ctx.symbol} (sàn {ctx.exchange}, biên độ ±{band:.0%}) có xung lực 20 phiên {ctx.stock_ret20:+.1%}, "
+                f"dòng tiền khối ngoại 5 phiên {ctx.foreign_net_ratio_5d:+.2%}, "
+                f"dữ liệu tài chính {'đã công bố chính thức' if ctx.pit_is_announced else 'chưa công bố (tạm loại bỏ để tránh sai lệch)'} "
+                f"(điểm chất lượng-định giá {eff_pit_z:+.2f}), thanh khoản ở mức {ctx.turnover_shock_20d:.2f}x trung bình 20 phiên."
             )
-            risk_desc = ", ".join(hidden_risks) if hidden_risks else "chưa ghi nhận bẫy thanh khoản hay kẹt sàn T+2.5 nghiêm trọng"
+            risk_desc = ", ".join(hidden_risks) if hidden_risks else "chưa thấy bẫy thanh khoản hay rủi ro kẹt sàn T+2.5 nghiêm trọng"
             s3 = (
-                f"Phản biện Pre-Mortem (kịch bản xấu nhất khi hàng kẹt T+2.5): khoảng cách sàn={ctx.dist_to_floor:.1%}, "
-                f"khoảng cách trần={ctx.dist_to_ceiling:.1%}, biên độ trong phiên={ctx.intraday_range:.1%}. "
-                f"Rủi ro ẩn phát hiện: **{risk_desc}**."
+                f"Xét kịch bản bất lợi khi cổ phiếu chưa kịp về tài khoản theo chu kỳ T+2.5: giá hiện cách sàn {ctx.dist_to_floor:.1%}, "
+                f"cách trần {ctx.dist_to_ceiling:.1%}, biên độ dao động trong phiên {ctx.intraday_range:.1%}. "
+                f"Điểm cần lưu ý: {risk_desc}."
             )
             s4 = (
-                f"Quyết định **{action}** | Tỷ trọng mục tiêu: **{target_w:.1f}% NAV** (Kelly-Shrinkage sau phí 0.15% + thuế bán 0.10%) | "
-                f"Cắt lỗ kỷ luật: **{sl_pct:.1%}** (ưu tiên thoát ngay khi hết khóa T+2.5 nếu vi phạm) | "
-                f"Chốt lời mục tiêu: **+{tp_pct:.1%}** | Xác suất vượt trội hiệu chỉnh: **{win_prob:.1%}**."
+                f"Tỷ trọng khuyến nghị {target_w:.1f}% tài khoản (đã tính đến phí giao dịch 0.15% và thuế bán 0.10%), "
+                f"ngưỡng cắt lỗ {sl_pct:.1%} (chủ động xử lý ngay khi hàng về T+2.5 nếu vi phạm), "
+                f"mục tiêu chốt lời +{tp_pct:.1%}, xác suất khả quan ước tính {win_prob:.1%}."
             )
             if action == "CASH_SHIELD":
                 s5 = (
-                    f"Ưu tiên bảo toàn vốn: thị trường phát tín hiệu rủi ro đuôi ({regime}, trauma={ctx.trauma_prob:.0%}). "
-                    f"Không mở mua mới `{ctx.symbol}` để tránh kẹt hàng T+2.5 trong kịch bản nằm sàn diện rộng; giữ tiền mặt chờ ổn định thanh khoản."
+                    f"Nên ưu tiên bảo toàn vốn do thị trường đang phát tín hiệu rủi ro cao (xác suất biến động xấu {ctx.trauma_prob:.0%}). "
+                    f"Chưa nên mở mua mới {ctx.symbol} lúc này để tránh kẹt hàng T+2.5 nếu áp lực bán lan rộng; giữ tiền mặt chờ thanh khoản ổn định lại."
                 )
             elif action == "REDUCE_OR_AVOID":
                 s5 = (
-                    f"Đứng ngoài / hạ tỷ trọng `{ctx.symbol}` do xuất hiện bẫy rủi ro ẩn ({risk_desc}). "
-                    "Tỷ lệ lợi nhuận/rủi ro sau thuế phí và độ trễ T+2.5 không đủ hấp dẫn — kỷ luật bỏ qua kèo FOMO là lợi thế cốt lõi của chuyên gia."
+                    f"Nên đứng ngoài hoặc hạ tỷ trọng với {ctx.symbol} vì đang xuất hiện tín hiệu rủi ro bất lợi ({risk_desc}). "
+                    "Biên lợi nhuận kỳ vọng sau phí, thuế và độ trễ T+2.5 chưa bù đắp được rủi ro — nên bỏ qua thay vì mua đuổi."
                 )
             elif action in ("BUY_HIGH_CONVICTION", "BUY_MODERATE"):
                 s5 = (
-                    f"Giải ngân có kiểm soát `{target_w:.1f}%` NAV vào `{ctx.symbol}` khi cả xu hướng, dòng tiền ngoại và nền tảng PIT đồng thuận "
-                    f"mà chưa bị kéo nóng quá mức. Đặt kỷ luật cắt lỗ `{sl_pct:.1%}` sau khi hàng về T+2.5."
+                    f"Có thể giải ngân có kiểm soát khoảng {target_w:.1f}% tài khoản vào {ctx.symbol} nhờ xu hướng giá, dòng tiền ngoại và nền tảng tài chính đang đồng thuận "
+                    f"mà giá chưa bị kéo nóng quá đà. Giữ kỷ luật cắt lỗ tại {sl_pct:.1%} khi cổ phiếu về tài khoản T+2.5."
                 )
             else:
                 s5 = (
-                    f"Duy trì vị thế phòng thủ nhẹ (`{target_w:.1f}%` NAV) với `{ctx.symbol}`, hạn chế đảo danh mục liên tục "
-                    "để tránh thuế bán 0.10% và trượt giá bào mòn alpha trong pha đi ngang."
+                    f"Phù hợp nắm giữ ở tỷ trọng phòng thủ nhẹ ({target_w:.1f}% tài khoản) với {ctx.symbol}, tránh lướt đảo liên tục "
+                    "vì phí giao dịch và thuế bán 0.10% sẽ bào mòn hiệu quả trong giai đoạn thị trường đi ngang."
                 )
         else:
             s1 = (
                 f"Market regime is **{regime}** (20d={ctx.mkt_r20:+.1%}, 5d={ctx.mkt_r5:+.1%}, "
-                f"breadth={ctx.breadth_20:.0%}, vol_ratio={ctx.vol_ratio:.2f}x, trauma_prob={ctx.trauma_prob:.0%}).{analog_txt}"
+                f"breadth={ctx.breadth_20:.0%}, vol_ratio={ctx.vol_ratio:.2f}x, trauma_prob={ctx.trauma_prob:.0%}).{analog_txt_en}"
             )
             s2 = (
                 f"`{ctx.symbol}` ({ctx.exchange}, ±{band:.0%} limit): 20d momentum {ctx.stock_ret20:+.1%}, "

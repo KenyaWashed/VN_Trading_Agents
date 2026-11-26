@@ -31,7 +31,12 @@ import pandas as pd
 from vn_rsi.data.snapshots import MarketSnapshot
 from vn_rsi.dsl.ast_spec import compute_feature_panel
 from vn_rsi.models.maveq_v4_veteran import VeteranCaseMemory, compute_causal_microstructure_state
-from vn_rsi.veteran.reasoning_engine import MarketContextSnapshot, VeteranReasoningEngine
+from vn_rsi.veteran.reasoning_engine import (
+    PRIVATE_VETERAN_SYSTEM_PROMPT,
+    MarketContextSnapshot,
+    VeteranReasoningEngine,
+    apply_no_think_chat_template,
+)
 
 
 @dataclass
@@ -45,28 +50,24 @@ class PreferenceDatasetReport:
 
 
 def _naive_fomo_rejected_response(ctx: MarketContextSnapshot, category: str) -> str:
-    """Construct realistic naive/FOMO failure response for DPO/GRPO negative preference pairs."""
+    """Construct realistic naive/FOMO Vietnamese failure response for DPO negative preference pairs."""
     if category == "pit_lag_trap":
         return (
-            f"1. Regime: Market looks fine. 2. Hypothesis: Quarter-end ROE is strong so buy {ctx.symbol} immediately "
-            "even before official earnings release. 3. Risks: None. 4. Sizing: Go 35% NAV all-in. "
-            "5. Brief: Aggressive buy based on fiscal quarter-end numbers."
+            f"Thấy tin đồn kết quả kinh doanh của {ctx.symbol} rất tốt nên mua mạnh 35% tài khoản ngay bây giờ "
+            "trước khi báo cáo tài chính ra chính thức, không cần quan tâm rủi ro tin vịt hay biên độ T+2.5."
         )
     if category in ("floor_lock_escape", "liquidity_crunch"):
         return (
-            f"1. Regime: Oversold dip! 2. Hypothesis: {ctx.symbol} dropped sharply near floor so it must bounce tomorrow. "
-            "3. Risks: Low risk, buy the dip. 4. Sizing: 30% NAV catching the falling knife without T+2.5 lock check. "
-            "5. Brief: All-in bottom fishing on floor-locked stock."
+            f"Cổ phiếu {ctx.symbol} giảm sâu sát sàn là quá rẻ rồi, bắt đáy ngay 30% tài khoản vì mai kiểu gì cũng hồi mạnh, "
+            "không cần lo kẹt hàng T+2.5 hay mất thanh khoản."
         )
     if category in ("foreign_pull_dump", "blowoff_t25_trap"):
         return (
-            f"1. Regime: Hot breakout! 2. Hypothesis: {ctx.symbol} surged +{ctx.stock_ret3:.1%} with huge volume "
-            f"({ctx.turnover_shock_20d:.1f}x) — pure FOMO momentum! 3. Risks: Ignore foreign selling and T+2.5 supply. "
-            "4. Sizing: 40% NAV chasing ceiling. 5. Brief: Chase the breakout before it runs away."
+            f"Mã {ctx.symbol} vừa tăng nóng {ctx.stock_ret3:+.1%} kèm thanh khoản vọt {ctx.turnover_shock_20d:.1f}x, "
+            "cứ mua đuổi 40% tài khoản ngay kẻo lỡ sóng, bỏ qua chuyện khối ngoại bán ròng hay áp lực chốt lời T+2.5."
         )
     return (
-        f"1. Regime: Bullish. 2. Hypothesis: Buy {ctx.symbol} blindly on price momentum without cost/liquidity checks. "
-        "3. Risks: Ignored. 4. Sizing: 35% NAV, no stop-loss. 5. Brief: Full margin buy."
+        f"Mua ngay {ctx.symbol} 35% tài khoản theo đà giá mà không cần đặt cắt lỗ hay tính đến phí thuế và thanh khoản."
     )
 
 
@@ -196,16 +197,17 @@ def build_veteran_sft_and_dpo_datasets(
                 language="vi",
             )
             resp = engine.analyze(ctx)
+            pit_desc = "đã công bố" if ctx.pit_is_announced else "chưa công bố chính thức"
             prompt = (
-                f"[Episode={cat} | Date={ctx.as_of_date} | Symbol={ctx.symbol} ({ctx.exchange})] "
-                f"Mkt20d={ctx.mkt_r20:+.1%}, MktDD60={ctx.mkt_dd60:+.1%}, Breadth={ctx.breadth_20:.0%}, "
-                f"VolRatio={ctx.vol_ratio:.2f}, TraumaProb={ctx.trauma_prob:.0%}, "
-                f"Stock3d={ctx.stock_ret3:+.1%}, Stock20d={ctx.stock_ret20:+.1%}, TShock={ctx.turnover_shock_20d:.2f}x, "
-                f"Foreign5d={ctx.foreign_net_ratio_5d:+.2%}, PIT_Announced={ctx.pit_is_announced}, "
-                f"DistFloor={ctx.dist_to_floor:.1%}, DistCeil={ctx.dist_to_ceiling:.1%}. "
-                "Hãy phân tích theo quy trình 5 bước của Chuyên gia Đầu tư 10 năm kinh nghiệm."
+                f"Dữ liệu thị trường ngày {ctx.as_of_date} cho mã {ctx.symbol} (sàn {ctx.exchange}): "
+                f"VN-Index 20 phiên {ctx.mkt_r20:+.1%}, sụt giảm từ đỉnh 60 phiên {ctx.mkt_dd60:+.1%}, "
+                f"độ rộng thị trường {ctx.breadth_20:.0%}, biến động {ctx.vol_ratio:.2f}x, rủi ro lịch sử {ctx.trauma_prob:.0%}; "
+                f"cổ phiếu 3 phiên {ctx.stock_ret3:+.1%}, 20 phiên {ctx.stock_ret20:+.1%}, "
+                f"đột biến thanh khoản {ctx.turnover_shock_20d:.2f}x, dòng tiền ngoại 5 phiên {ctx.foreign_net_ratio_5d:+.2%}, "
+                f"BCTC {pit_desc}, cách giá sàn {ctx.dist_to_floor:.1%}, cách giá trần {ctx.dist_to_ceiling:.1%}. "
+                f"Hãy đánh giá cơ hội, rủi ro T+2.5 và đề xuất hành động cụ thể cho mã {ctx.symbol}."
             )
-            chosen_md = resp.render_markdown()
+            chosen_md = resp.render_natural_vietnamese()
             rejected_md = _naive_fomo_rejected_response(ctx, cat)
 
             sft_rows.append(
@@ -286,27 +288,13 @@ def _resolve_lora_target_modules(model: Any) -> list[str] | str:
 
 
 def _format_chat_sft_text(tok: Any, prompt: str, completion: str) -> str:
-    """Format SFT prompt+completion using the model's native `chat_template` when available."""
+    """Format SFT prompt+completion with `enable_thinking=False` and private veteran system persona."""
     messages = [
-        {
-            "role": "system",
-            "content": (
-                "Bạn là Chuyên gia Đầu tư Định lượng 10 năm kinh nghiệm trên thị trường chứng khoán Việt Nam "
-                "(kỷ luật T+2.5, biên độ trần/sàn, chống bẫy thanh khoản và dữ liệu PIT)."
-            ),
-        },
+        {"role": "system", "content": PRIVATE_VETERAN_SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
         {"role": "assistant", "content": completion},
     ]
-    if getattr(tok, "chat_template", None):
-        try:
-            rendered = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
-            if isinstance(rendered, str) and rendered.strip():
-                return rendered
-        except Exception:
-            pass
-    eos = getattr(tok, "eos_token", "") or "<|im_end|>"
-    return f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n{completion}{eos}"
+    return apply_no_think_chat_template(tok, messages, add_generation_prompt=False)
 
 
 def train_veteran_two_stage_qlora_dpo(
@@ -525,7 +513,18 @@ def train_veteran_two_stage_qlora_dpo(
         # Stage 2: DPO (reference-free PEFT adapter comparison -> saves 50% VRAM!)
         dpo_dir = out_p / "stage2_dpo"
         clean_dpo_rows = [
-            {"prompt": str(r["prompt"]), "chosen": str(r["chosen"]), "rejected": str(r["rejected"])}
+            {
+                "prompt": apply_no_think_chat_template(
+                    tok,
+                    [
+                        {"role": "system", "content": PRIVATE_VETERAN_SYSTEM_PROMPT},
+                        {"role": "user", "content": str(r["prompt"])},
+                    ],
+                    add_generation_prompt=True,
+                ),
+                "chosen": str(r["chosen"]),
+                "rejected": str(r["rejected"]),
+            }
             for r in dpo_rows
         ]
         dpo_sig_params = inspect.signature(DPOConfig.__init__).parameters

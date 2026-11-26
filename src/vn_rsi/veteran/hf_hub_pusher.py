@@ -121,6 +121,7 @@ def build_veteran_model_card(
 
     if is_merged_16bit:
         usage_code = f'''```python
+import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -128,25 +129,32 @@ repo_id = "{repo_id}"
 tok = AutoTokenizer.from_pretrained(repo_id, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(
     repo_id,
-    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
     device_map="auto" if torch.cuda.is_available() else None,
     trust_remote_code=True,
 )
 
-prompt = (
-    "[Date=2024-06-28 | Symbol=FPT (HOSE)] Mkt20d=+3.4%, Breadth=62%, VolRatio=0.94, "
-    "TraumaProb=14%, Stock3d=+1.8%, Stock20d=+8.5%, TShock=1.25x, Foreign5d=+4.2%, "
-    "PIT_Announced=True, DistFloor=6.1%, DistCeil=4.8%. "
-    "Hãy phân tích theo quy trình 5 bước của Chuyên gia Đầu tư 10 năm kinh nghiệm."
+system_prompt = (
+    "Bạn là chuyên viên phân tích và quản lý danh mục cổ phiếu Việt Nam dày dặn thực chiến. "
+    "Trả lời hoàn toàn bằng tiếng Việt tự nhiên, súc tích, không in phần suy nghĩ nội bộ (<think>) "
+    "và không tự nhắc đến số năm kinh nghiệm."
 )
-messages = [{{"role": "user", "content": prompt}}]
-text_in = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+prompt = (
+    "Dữ liệu thị trường ngày 2024-06-28 cho mã FPT (sàn HOSE): VN-Index 20 phiên +3.4%, "
+    "độ rộng 62%, biến động 0.94x; cổ phiếu 3 phiên +1.8%, 20 phiên +8.5%, "
+    "thanh khoản 1.25x, khối ngoại 5 phiên +4.2%, BCTC đã công bố, cách sàn 6.1%, cách trần 4.8%. "
+    "Hãy đánh giá cơ hội, rủi ro T+2.5 và đề xuất hành động cụ thể cho mã FPT."
+)
+messages = [{{"role": "system", "content": system_prompt}}, {{"role": "user", "content": prompt}}]
+text_in = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
 inputs = tok(text_in, return_tensors="pt").to(model.device)
-out = model.generate(**inputs, max_new_tokens=320, do_sample=False)
-print(tok.decode(out[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True))
+out = model.generate(**inputs, max_new_tokens=512, do_sample=False, repetition_penalty=1.08)
+ans = tok.decode(out[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+print(re.sub(r"<think>.*?</think>\\s*", "", ans, flags=re.DOTALL).strip())
 ```'''
     elif has_adapter:
         usage_code = f'''```python
+import re
 import torch
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -157,24 +165,30 @@ adapter_repo_id = "{repo_id}"
 tok = AutoTokenizer.from_pretrained(adapter_repo_id, trust_remote_code=True)
 base_model = AutoModelForCausalLM.from_pretrained(
     base_model_id,
-    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
     device_map="auto" if torch.cuda.is_available() else None,
     trust_remote_code=True,
 )
 model = PeftModel.from_pretrained(base_model, adapter_repo_id)
 model.eval()
 
-prompt = (
-    "[Date=2024-06-28 | Symbol=FPT (HOSE)] Mkt20d=+3.4%, Breadth=62%, VolRatio=0.94, "
-    "TraumaProb=14%, Stock3d=+1.8%, Stock20d=+8.5%, TShock=1.25x, Foreign5d=+4.2%, "
-    "PIT_Announced=True, DistFloor=6.1%, DistCeil=4.8%. "
-    "Hãy phân tích theo quy trình 5 bước của Chuyên gia Đầu tư 10 năm kinh nghiệm."
+system_prompt = (
+    "Bạn là chuyên viên phân tích và quản lý danh mục cổ phiếu Việt Nam dày dặn thực chiến. "
+    "Trả lời hoàn toàn bằng tiếng Việt tự nhiên, súc tích, không in phần suy nghĩ nội bộ (<think>) "
+    "và không tự nhắc đến số năm kinh nghiệm."
 )
-messages = [{{"role": "user", "content": prompt}}]
-text_in = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+prompt = (
+    "Dữ liệu thị trường ngày 2024-06-28 cho mã FPT (sàn HOSE): VN-Index 20 phiên +3.4%, "
+    "độ rộng 62%, biến động 0.94x; cổ phiếu 3 phiên +1.8%, 20 phiên +8.5%, "
+    "thanh khoản 1.25x, khối ngoại 5 phiên +4.2%, BCTC đã công bố, cách sàn 6.1%, cách trần 4.8%. "
+    "Hãy đánh giá cơ hội, rủi ro T+2.5 và đề xuất hành động cụ thể cho mã FPT."
+)
+messages = [{{"role": "system", "content": system_prompt}}, {{"role": "user", "content": prompt}}]
+text_in = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
 inputs = tok(text_in, return_tensors="pt").to(model.device)
-out = model.generate(**inputs, max_new_tokens=320, do_sample=False)
-print(tok.decode(out[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True))
+out = model.generate(**inputs, max_new_tokens=512, do_sample=False, repetition_penalty=1.08)
+ans = tok.decode(out[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+print(re.sub(r"<think>.*?</think>\\s*", "", ans, flags=re.DOTALL).strip())
 ```'''
     else:
         usage_code = f'''```python
