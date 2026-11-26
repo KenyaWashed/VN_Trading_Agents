@@ -21,6 +21,12 @@ import numpy as np
 
 from vn_rsi.dsl.ast_spec import FactorSpec
 from vn_rsi.models.ast_vocab import MECHANISM_FAMILIES, ASTVocab
+from vn_rsi.models.cloud_presets import (
+    amp_autocast_and_scaler,
+    get_preset_spec,
+    resolve_torch_device,
+    xla_mark_step_if_needed,
+)
 
 try:
     import torch
@@ -48,45 +54,18 @@ class ASTDiffusionConfig:
 
     @classmethod
     def from_preset(cls, preset: str, seed: int = 42) -> ASTDiffusionConfig:
-        if preset == "kaggle_max_100m":
-            return cls(
-                preset=preset,
-                d_model=768,
-                n_layers=14,
-                n_heads=12,
-                d_ff=3072,
-                max_seq_len=16,
-                denoise_steps=10,
-                learning_rate=1.5e-4,
-                kl_beta=0.04,
-                use_amp_fp16=True,
-                seed=seed,
-            )
-        if preset == "kaggle_t4_optimal":
-            return cls(
-                preset=preset,
-                d_model=256,
-                n_layers=8,
-                n_heads=8,
-                d_ff=1024,
-                max_seq_len=16,
-                denoise_steps=8,
-                learning_rate=3e-4,
-                kl_beta=0.04,
-                use_amp_fp16=True,
-                seed=seed,
-            )
+        spec = get_preset_spec(preset)
         return cls(
-            preset="cpu_fast",
-            d_model=64,
-            n_layers=2,
-            n_heads=4,
-            d_ff=256,
+            preset=spec.name,
+            d_model=spec.diff_d_model,
+            n_layers=spec.diff_n_layers,
+            n_heads=spec.diff_n_heads,
+            d_ff=spec.diff_d_ff,
             max_seq_len=16,
-            denoise_steps=6,
-            learning_rate=1e-3,
+            denoise_steps=spec.diff_denoise_steps,
+            learning_rate=spec.diff_lr,
             kl_beta=0.04,
-            use_amp_fp16=False,
+            use_amp_fp16=spec.use_amp,
             seed=seed,
         )
 
@@ -159,11 +138,9 @@ class DiscreteASTDiffusion:
         # Domain-informed prior logits (weakly initializes token preferences before ReST updates)
         self.prior_bias = self._build_prior_bias()
 
+        self.is_xla_tpu = False
         if HAS_TORCH:
-            if device:
-                self.device = torch.device(device)
-            else:
-                self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device, self.is_xla_tpu = resolve_torch_device(device)
             torch.manual_seed(self.config.seed)
             self.net: Any = _DiscreteASTTransformer(
                 vocab_size=self.vocab.vocab_size,
@@ -171,7 +148,7 @@ class DiscreteASTDiffusion:
                 cfg=self.config,
             ).to(self.device)
             self.optimizer: Any = torch.optim.AdamW(self.net.parameters(), lr=self.config.learning_rate, weight_decay=1e-2)
-            self.backend_runtime = f"pytorch:{self.device}"
+            self.backend_runtime = f"pytorch_xla:{self.device}" if self.is_xla_tpu else f"pytorch:{self.device}"
         else:
             # Lightweight NumPy conditional bigram/position parameter tensor for CPU-only zero-torch CI
             self.device = "cpu"
@@ -431,7 +408,7 @@ class DiscreteASTDiffusion:
                 mr_ref = torch.full((x_clean.shape[0],), 0.35, dtype=torch.float32, device=self.device)
                 ref_log_probs = F.log_softmax(self.net(x_clean, f_t, mr_ref), dim=-1)
 
-            use_amp = bool(self.config.use_amp_fp16 and self.device.type == "cuda")
+            amp_ctx, scaler = amp_autocast_and_scaler(self.device, self.config.use_amp_fp16, self.is_xla_tpu)
             last_loss = 0.0
             for _ in range(epochs):
                 ratio = float(self.rng.uniform(0.20, 0.70))
@@ -445,7 +422,7 @@ class DiscreteASTDiffusion:
                 x_noisy[rand_mask] = self.vocab.mask_id
                 mr_t = torch.full((x_clean.shape[0],), ratio, dtype=torch.float32, device=self.device)
 
-                with torch.amp.autocast(device_type=self.device.type, enabled=use_amp):
+                with amp_ctx:
                     logits = self.net(x_noisy, f_t, mr_t)
                     log_probs = F.log_softmax(logits, dim=-1)
                     nll = F.nll_loss(
@@ -460,9 +437,17 @@ class DiscreteASTDiffusion:
                     loss = pg_loss + self.config.kl_beta * kl_div
 
                 self.optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
-                self.optimizer.step()
+                if scaler is not None:
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+                    scaler.step(self.optimizer)
+                    scaler.update()
+                else:
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+                    self.optimizer.step()
+                xla_mark_step_if_needed(self.is_xla_tpu)
                 self.train_steps_completed += 1
                 last_loss = float(loss.item())
 
@@ -506,6 +491,16 @@ class DiscreteASTDiffusion:
         out.parent.mkdir(parents=True, exist_ok=True)
         if HAS_TORCH and self.net is not None:
             torch.save({"config": self.config.__dict__, "state_dict": self.net.state_dict()}, out)
-        else:
-            np.savez(out.with_suffix(".npz"), np_logits=self.np_logits)
-        return out
+            return out
+        npz_path = out.with_suffix(".npz")
+        np.savez(npz_path, np_logits=self.np_logits)
+        return npz_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        src = Path(path)
+        if HAS_TORCH and self.net is not None and src.exists():
+            ckpt = torch.load(src, map_location=self.device, weights_only=False)
+            self.net.load_state_dict(ckpt["state_dict"])
+        elif src.with_suffix(".npz").exists():
+            data = np.load(src.with_suffix(".npz"))
+            self.np_logits = np.asarray(data["np_logits"], dtype=float)

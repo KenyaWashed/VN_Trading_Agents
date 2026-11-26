@@ -3,7 +3,7 @@ PYTEST ?= uv run pytest
 RUFF ?= uv run ruff
 MYPY ?= uv run mypy
 
-.PHONY: data test lint baseline agent rsi modular combat train-cloud report verify all
+.PHONY: data test lint baseline agent rsi modular combat holo-combat holo-ablation train-cloud report verify all
 
 data:
 	$(PYTHON) experiments/run_data.py --config configs/data.yaml --market-rules configs/market_rules.yaml
@@ -12,7 +12,7 @@ test:
 	$(PYTEST) tests/
 
 lint:
-	$(RUFF) check src tests experiments paper scripts train_colab_kaggle.py
+	$(RUFF) check src tests experiments paper scripts train_colab_kaggle.py modal_train.py
 	$(MYPY) src/vn_rsi
 
 baseline:
@@ -30,11 +30,17 @@ modular:
 combat:
 	$(PYTHON) experiments/run_frontier_combat.py --combat-config configs/frontier_combat.yaml
 
+holo-combat:
+	$(PYTHON) experiments/run_holo_maveq_combat.py --config configs/holo_maveq.yaml
+
+holo-ablation:
+	$(PYTHON) experiments/run_holo_maveq_ablation.py --seeds "11,22,33,2026"
+
 train-cloud:
-	$(PYTHON) train_colab_kaggle.py --preset auto
+	$(PYTHON) train_colab_kaggle.py --preset auto --mode holo_v3
 
 report:
 	$(PYTHON) experiments/build_report.py --logs-dir logs --paper-dir paper
 	$(PYTHON) paper/verify_paper.py --paper-dir paper --logs-dir logs
 
-all: data test baseline agent rsi modular combat report
+all: data test baseline agent rsi modular combat holo-combat holo-ablation report

@@ -1,29 +1,34 @@
-"""All-in-One Modular Micro-RSI Training & Sealed Evaluation Script for Google Colab (T4) & Kaggle (T4 x2).
+"""Universal Free-Cloud Trainer for MAVE-Q v4 (VetQuant-RSI), Holo-MAVE-Q v3, & 10-Year Veteran QLoRA+DPO.
 
 Author: Tran Duy Khang — AI Software Engineer / Freelance Vibe Researcher
 
-Supports:
-- Kaggle Notebooks FREE (`T4 x2`: 2x 16GB VRAM, 30h/week): GPU 0 -> Qwen3-4B QLoRA, GPU 1 -> AST Diffusion + HRM
-- Google Colab FREE (`1x T4`: 16GB VRAM): GPU 0 -> Qwen3-4B/1.7B QLoRA + AST Diffusion + HRM (sequential VRAM clean)
-- Local CPU laptop: automatic `cpu_fast` preset for instant smoke-testing
+Guaranteed zero-friction execution across 100% FREE cloud tiers (Peak VRAM < 4.5 GB on T4):
+1. Google Colab FREE (`1x T4`: 16GB VRAM):
+     Sequential VRAM-cleaned stages: MAVE-Q v4 (`kaggle_t4_optimal`, ~10M, <0.25GB) + Qwen3-1.7B/4B 4-bit QLoRA+DPO (~3.4-4.3GB)
+2. Kaggle Notebooks FREE (`T4 x2`: 2x16GB VRAM, 30h/wk):
+     `cuda:1` -> MAVE-Q v4 (`kaggle_max_100m`, ~158M FP16, ~1.6GB) | `cuda:0` -> Qwen3-4B/8B 4-bit QLoRA+DPO
+3. Kaggle Notebooks FREE (`TPU v5e-8`: 128GB HBM, 20h/wk):
+     `xla` -> MAVE-Q v4 (`tpu_v5e_350m`, ~357M BF16 via `torch_xla`)
+4. Modal Serverless FREE ($30/mo credits -> A100-80GB / H100) & Lightning AI Studios FREE
+5. Automatic `--resume` checkpoint recovery across 12-hour free session cutoffs + peak VRAM & stage timing telemetry.
 
-Usage on Kaggle / Colab:
-    !python train_colab_kaggle.py --preset kaggle_t4_optimal --enable-unsloth-qlora --slm-model unsloth/Qwen3-4B-bnb-4bit
-Usage on CPU (smoke test):
-    python train_colab_kaggle.py --preset cpu_fast --epochs 5
+Usage:
+    python train_colab_kaggle.py --preset auto --mode maveq_v4 --resume
+    python train_colab_kaggle.py --preset kaggle_t4_optimal --mode maveq_v4 --enable-veteran-dpo --resume
+    python train_colab_kaggle.py --preset cpu_fast --mode maveq_v4 --smoke-test
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import gc
 import json
-import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
-# Ensure `src/` is importable when executed directly on Kaggle/Colab without `pip install -e .`
 REPO_ROOT = Path(__file__).resolve().parent
 SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
@@ -32,189 +37,58 @@ if str(SRC_DIR) not in sys.path:
 from vn_rsi.agents import MultiAgentResearchPipeline  # noqa: E402
 from vn_rsi.data import DataQASuite, SnapshotManager, build_provider, load_market_rules  # noqa: E402
 from vn_rsi.eval import SealedEvaluator  # noqa: E402
-from vn_rsi.models import ModularMicroRSIBackend  # noqa: E402
+from vn_rsi.models import (  # noqa: E402
+    VALID_PRESETS,
+    HoloMAVEQEngine,
+    MAVEQv4Engine,
+    ModularMicroRSIBackend,
+    detect_cloud_compute,
+)
 from vn_rsi.rsi import BiLevelRSIRunner  # noqa: E402
 from vn_rsi.utils import BudgetConfig, BudgetTracker, load_yaml, set_global_seed  # noqa: E402
+from vn_rsi.veteran import (  # noqa: E402
+    build_veteran_sft_and_dpo_datasets,
+    train_veteran_two_stage_qlora_dpo,
+)
 
 
 def detect_compute_environment() -> dict[str, Any]:
-    """Detect Kaggle / Colab / Local environment and exact CUDA VRAM topology."""
-    platform = "local"
-    if os.environ.get("KAGGLE_KERNEL_RUN_TYPE") or Path("/kaggle/working").exists():
-        platform = "kaggle"
-    elif os.environ.get("COLAB_RELEASE_TAG") or Path("/content").exists():
-        platform = "colab"
+    """Detect Kaggle (GPU/TPU) / Colab / Modal / Lightning / Local environment & optimal preset."""
+    return detect_cloud_compute()
 
-    gpus: list[dict[str, Any]] = []
-    has_torch = False
+
+def cleanup_vram() -> dict[str, float]:
+    """Explicitly reclaim host RAM and CUDA VRAM between training stages + report peak VRAM."""
+    gc.collect()
+    peak_mb = 0.0
+    alloc_mb = 0.0
     try:
         import torch
 
-        has_torch = True
         if torch.cuda.is_available():
-            for idx in range(torch.cuda.device_count()):
-                props = torch.cuda.get_device_properties(idx)
-                gpus.append(
-                    {
-                        "index": idx,
-                        "name": props.name,
-                        "vram_gb": round(props.total_memory / (1024**3), 2),
-                    }
-                )
+            peak_mb = round(float(torch.cuda.max_memory_allocated()) / (1024.0**2), 2)
+            torch.cuda.empty_cache()
+            alloc_mb = round(float(torch.cuda.memory_allocated()) / (1024.0**2), 2)
     except Exception:
         pass
-
-    if len(gpus) >= 2:
-        slm_device, micro_device = "cuda:0", "cuda:1"
-    elif len(gpus) == 1:
-        slm_device, micro_device = "cuda:0", "cuda:0"
-    else:
-        slm_device, micro_device = "cpu", "cpu"
-
-    return {
-        "platform": platform,
-        "has_torch": has_torch,
-        "gpu_count": len(gpus),
-        "gpus": gpus,
-        "slm_device": slm_device,
-        "micro_device": micro_device,
-    }
+    return {"peak_vram_mb": peak_mb, "post_cleanup_alloc_mb": alloc_mb}
 
 
-def finetune_slm_with_unsloth_qlora(
-    sft_jsonl_path: Path,
-    model_id: str,
-    output_dir: Path,
-    max_seq_len: int = 2048,
-    epochs: int = 2,
-    batch_size: int = 2,
-    grad_accum: int = 4,
-) -> dict[str, Any]:
-    """Fine-tune Model 1 (Qwen3-4B or Qwen3-1.7B) via Unsloth 4-bit QLoRA on verified search-zone trajectories.
-
-    Fits comfortably inside a single FREE T4 16GB GPU (~4.2 GB VRAM for Qwen3-4B, ~2.0 GB for Qwen3-1.7B).
-    """
-    if not sft_jsonl_path.exists():
-        return {"status": "skipped", "reason": f"SFT file not found: {sft_jsonl_path}"}
-
-    rows: list[dict[str, str]] = []
-    with sft_jsonl_path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rec = json.loads(line)
-            prompt = (
-                f"Mechanism family: {rec.get('family')}. "
-                "Formulate a falsifiable Vietnamese equity hypothesis and strictly causal FactorSpec AST."
-            )
-            completion = json.dumps(
-                {"hypothesis": rec.get("hypothesis"), "factor_spec": rec.get("factor_spec")},
-                sort_keys=True,
-            )
-            rows.append({"text": f"<|user|>\n{prompt}\n<|assistant|>\n{completion}<|end|>"})
-
-    if len(rows) < 2:
-        return {"status": "skipped", "reason": f"Need >= 2 verified trajectories, found {len(rows)}"}
-
-    try:
-        import torch
-        from datasets import Dataset  # type: ignore[import-not-found]
-        from trl import SFTConfig, SFTTrainer  # type: ignore[import-not-found]
-        from unsloth import FastLanguageModel  # type: ignore[import-not-found]
-    except Exception as exc:
-        return {
-            "status": "unsloth_not_installed",
-            "reason": str(exc),
-            "install_hint": "pip install -q unsloth trl datasets bitsandbytes accelerate",
-            "trajectories_ready": len(rows),
-        }
-
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_id,
-        max_seq_length=max_seq_len,
-        dtype=None,
-        load_in_4bit=True,
-    )
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=16,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=32,
-        lora_dropout=0.0,
-        bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=2026,
-    )
-
-    ds = Dataset.from_list(rows)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    trainer = SFTTrainer(
-        model=model,
-        tokenizer=tokenizer,
-        train_dataset=ds,
-        dataset_text_field="text",
-        args=SFTConfig(
-            output_dir=str(output_dir),
-            per_device_train_batch_size=batch_size,
-            gradient_accumulation_steps=grad_accum,
-            num_train_epochs=epochs,
-            learning_rate=2e-4,
-            fp16=not torch.cuda.is_bf16_supported(),
-            bf16=torch.cuda.is_bf16_supported(),
-            logging_steps=1,
-            optim="adamw_8bit",
-            save_strategy="no",
-            report_to="none",
-        ),
-    )
-    train_out = trainer.train()
-    model.save_pretrained(str(output_dir))
-    tokenizer.save_pretrained(str(output_dir))
-
-    # Free GPU memory cleanly for single-T4 Colab setups
-    del trainer, model
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    return {
-        "status": "trained",
-        "model_id": model_id,
-        "trajectories_used": len(rows),
-        "train_loss": round(float(train_out.training_loss), 5),
-        "adapter_saved_to": str(output_dir),
-    }
+def _load_resume_state(state_path: Path) -> dict[str, Any]:
+    if state_path.exists():
+        try:
+            return json.loads(state_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Train Modular Micro-RSI on Google Colab / Kaggle / CPU")
-    parser.add_argument("--preset", default="auto", choices=["auto", "cpu_fast", "kaggle_t4_optimal", "kaggle_max_100m"])
-    parser.add_argument("--slm-model", default="unsloth/Qwen3-4B-bnb-4bit")
-    parser.add_argument("--enable-unsloth-qlora", action="store_true")
-    parser.add_argument("--epochs", type=int, default=12)
-    parser.add_argument("--outer-iters", type=int, default=3)
-    parser.add_argument("--seed", type=int, default=2026)
-    parser.add_argument("--checkpoint-dir", default="artifacts/checkpoints")
-    args = parser.parse_args()
+def _save_resume_state(state_path: Path, state: dict[str, Any]) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
 
-    set_global_seed(args.seed)
-    env = detect_compute_environment()
-    preset = args.preset
-    if preset == "auto":
-        preset = "kaggle_t4_optimal" if env["gpu_count"] >= 1 else "cpu_fast"
 
-    print("=== [VN-RSI] Environment & Hardware Diagnostics ===")
-    print(json.dumps({**env, "selected_preset": preset}, indent=2))
-
-    data_cfg = load_yaml(REPO_ROOT / "configs" / "data.yaml")
-    sandbox_cfg = load_yaml(REPO_ROOT / "configs" / "sandbox.yaml")
-    agent_cfg = load_yaml(REPO_ROOT / "configs" / "agent_v0.yaml")
-    llm_cfg = load_yaml(REPO_ROOT / "configs" / "llm.yaml")
-    rsi_cfg = load_yaml(REPO_ROOT / "configs" / "rsi.yaml")
-    rules = load_market_rules(REPO_ROOT / "configs" / "market_rules.yaml")
-
-    # Stage 1: Ensure immutable leak-free snapshot exists & passes Data QA
+def _ensure_snapshot(data_cfg: dict[str, Any], rules: Any) -> Any:
     snap_mgr = SnapshotManager(REPO_ROOT / str(data_cfg.get("snapshot_root", "data/snapshots")))
     snap_id = str(data_cfg["snapshot_id"])
     try:
@@ -233,118 +107,216 @@ def main() -> None:
     qa = DataQASuite(rules).run_all(snapshot)
     if not qa.passed:
         raise SystemExit(f"Data QA FAILED: {qa.checks}")
+    return snapshot
 
-    # Stage 2: Initialize Sealed Evaluator + Modular Micro-RSI Models (AST Diffusion + HRM)
-    sandbox_cfg["ledger_path"] = str(REPO_ROOT / "logs" / "cloud_train_sealed_ledger.jsonl")
-    evaluator = SealedEvaluator(snapshot, rules, sandbox_cfg)
 
-    modular = ModularMicroRSIBackend(
-        preset=preset,
-        diffusion_device=env["micro_device"],
-        hrm_device=env["micro_device"],
-        seed=args.seed,
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Universal Free-Cloud Trainer for MAVE-Q v4 (VetQuant-RSI) + 10-Year Veteran QLoRA/DPO"
     )
-    print("\n=== [VN-RSI] Calibrated Micro-Model Breakdown ===")
-    print(
-        json.dumps(
-            {
-                "ast_diffusion_runtime": modular.diffusion.backend_runtime,
-                "ast_diffusion_params": modular.diffusion.parameter_count(),
-                "ast_diffusion_est_train_vram_mb": modular.diffusion.estimate_training_vram_mb(),
-                "hrm_reasoner_runtime": modular.hrm.backend_runtime,
-                "hrm_reasoner_params": modular.hrm.parameter_count(),
-                "hrm_reasoner_est_train_vram_mb": modular.hrm.estimate_training_vram_mb(),
-            },
-            indent=2,
-        )
+    parser.add_argument("--preset", default="auto", choices=["auto", *VALID_PRESETS])
+    parser.add_argument(
+        "--mode",
+        default="maveq_v4",
+        choices=["maveq_v4", "holo_v3", "modular_v1", "full"],
+        help="maveq_v4 (flagship v4 VetQuant-RSI), holo_v3, modular_v1, or full (v4 + v3 + veteran DPO)",
     )
-
-    # Stage 3: Harvest verified search-zone trajectories & train AST Diffusion + HRM weights (search-only!)
-    sft_path = REPO_ROOT / "logs" / "cloud_sft_verified_trajectories.jsonl"
-    if sft_path.exists():
-        sft_path.unlink()
-
-    warmup_budget = BudgetTracker(BudgetConfig(max_tokens=100_000, max_wall_seconds=300.0, max_gpu_hours=1.0), "cloud_warmup")
-    pipe = MultiAgentResearchPipeline(
-        evaluator=evaluator,
-        llm=modular,
-        genome=dict(agent_cfg["genome"]),
-        acceptance_cfg=dict(agent_cfg.get("acceptance_criteria", {})),
+    parser.add_argument("--slm-model", default="Qwen/Qwen3-1.7B", help="Compact SLM for <4.5GB VRAM 4-bit QLoRA+DPO")
+    parser.add_argument(
+        "--enable-veteran-dpo",
+        "--enable-slm-qlora",
+        "--enable-unsloth-qlora",
+        dest="enable_veteran_dpo",
+        action="store_true",
+        help="Run 2-stage 4-bit QLoRA SFT + DPO veteran reasoning trainer (auto CPU fallback if 0 GPU)",
     )
-    warm = pipe.run(
-        agent_version="cloud_warmup",
-        n_rounds=3,
-        n_hypotheses_per_round=4,
-        budget=warmup_budget,
-        seed=args.seed,
-        run_id="cloud_warmup",
-        sft_export_path=sft_path,
-    )
+    parser.add_argument("--epochs", type=int, default=10, help="diffu-GRPO training epochs per round")
+    parser.add_argument("--rounds", type=int, default=6, help="Evolution rounds")
+    parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--checkpoint-dir", default="artifacts/checkpoints")
+    parser.add_argument("--resume", action="store_true", help="Resume automatically from last completed stage checkpoint")
+    parser.add_argument("--score-sealed", action="store_true", help="Run single-shot sealed_test on frozen champion")
+    parser.add_argument("--smoke-test", action="store_true", help="Fast 2-round dry run to verify cloud/local runtime")
+    args = parser.parse_args()
 
-    steward = pipe._data_steward_search_summary()
-    hrm_obs = []
-    for rec in warm.candidate_records:
-        if rec.audit.passed:
-            hrm_obs.append(
-                {
-                    "regime_vec": modular.hrm.encode_regime_state(steward, warm.family_ic_summary),
-                    "ast_tokens": modular.diffusion.vocab.encode_ast(rec.spec.root),
-                    "search_rank_ic": rec.search_rank_ic,
-                    "family": rec.hypothesis.mechanism_family,
-                }
-            )
-            if rec.accepted_on_search:
-                modular.register_verified_search_winner(rec.hypothesis.mechanism_family, rec.spec)
-
-    micro_train_stats = modular.self_improve_weights(
-        verified_trajectories=warm.verified_sft_trajectories,
-        hrm_observations=hrm_obs,
-        epochs=args.epochs,
-    )
+    t_start = time.time()
+    set_global_seed(args.seed)
+    env = detect_compute_environment()
+    preset = env["recommended_preset"] if args.preset == "auto" else args.preset
 
     ckpt_dir = REPO_ROOT / args.checkpoint_dir
-    diff_ckpt = modular.diffusion.save_checkpoint(ckpt_dir / f"ast_diffusion_{preset}.pt")
-    hrm_ckpt = modular.hrm.save_checkpoint(ckpt_dir / f"hrm_reasoner_{preset}.pt")
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    state_path = ckpt_dir / f"resume_state_{args.mode}_{preset}.json"
+    resume_state = _load_resume_state(state_path) if args.resume else {}
 
-    # Stage 4: Optional Unsloth 4-bit QLoRA Fine-Tuning of Qwen3-4B / 1.7B Narrator on Free T4 GPU
-    qlora_report: dict[str, Any] = {"status": "disabled_by_flag"}
-    if args.enable_unsloth_qlora:
-        qlora_report = finetune_slm_with_unsloth_qlora(
-            sft_jsonl_path=sft_path,
-            model_id=args.slm_model,
-            output_dir=ckpt_dir / "qwen3_narrator_qlora",
-            epochs=2,
-        )
+    print("=== [MAVE-Q v4] Universal Free-Cloud Compute Diagnostics ===")
+    print(json.dumps({**env, "selected_preset": preset, "mode": args.mode, "resume": args.resume}, indent=2))
 
-    # Stage 5: Bi-Level RSI Validation Evaluation of Trained Micro-Models
-    rsi_local = dict(rsi_cfg)
-    rsi_local["outer_iterations"] = args.outer_iters
-    rsi_local["inner_rounds_per_eval"] = 2
-    rsi_local["inner_hypotheses_per_round"] = 3
-    rsi_local["selection_seeds"] = [101, 202, 303]
-    rsi_local["self_training"] = {"export_sft_trajectories": False}
+    data_cfg = load_yaml(REPO_ROOT / "configs/data.yaml")
+    sandbox_cfg = load_yaml(REPO_ROOT / "configs/sandbox.yaml")
+    v4_cfg = copy.deepcopy(load_yaml(REPO_ROOT / "configs/maveq_v4.yaml"))
+    holo_cfg = copy.deepcopy(load_yaml(REPO_ROOT / "configs/holo_maveq.yaml"))
+    rules = load_market_rules(REPO_ROOT / "configs/market_rules.yaml")
 
-    runner = BiLevelRSIRunner(evaluator, modular, modular, rsi_local, agent_cfg, llm_cfg)
-    summary = runner.run_mode("cloud_modular_rsi", seed_override=args.seed)
+    snapshot = _ensure_snapshot(data_cfg, rules)
+    sandbox_cfg["ledger_path"] = str(REPO_ROOT / "logs/cloud_train_sealed_ledger.jsonl")
 
-    report = {
+    report: dict[str, Any] = {
         "status": "COMPLETED",
         "environment": env,
         "preset": preset,
-        "micro_weight_training": micro_train_stats,
-        "slm_qlora_training": qlora_report,
-        "checkpoints": {"ast_diffusion": str(diff_ckpt), "hrm_reasoner": str(hrm_ckpt)},
-        "rsi_results": {
-            "seed_val_composite": summary.seed_entry.val_composite_mean,
-            "best_val_composite": summary.best_entry.val_composite_mean,
-            "best_val_sharpe": summary.best_entry.val_sharpe_mean,
-            "best_val_rank_ic": summary.best_entry.val_rank_ic_mean,
-            "accepted_rewrites": summary.accepted_rewrites,
-            "reward_hacking_attempts": summary.reward_hacking_attempts,
-        },
+        "mode": args.mode,
+        "resumed_stages": [],
+        "stage_timings_sec": {},
+        "stage_vram_telemetry": {},
+        "checkpoints": {},
     }
-    print("\n=== [VN-RSI] Training & Evaluation Summary ===")
-    print(json.dumps(report, indent=2))
+
+    # ------------------------------------------------------------------
+    # Stage 1: MAVE-Q v4 (VetQuant-RSI) Structural Core + VeteranCaseMemory + Regime Controller
+    # ------------------------------------------------------------------
+    if args.mode in ("maveq_v4", "full"):
+        t_s1 = time.time()
+        bundle_path = ckpt_dir / f"maveq_v4_bundle_{preset}.json"
+        if args.resume and resume_state.get("stage1_v4_done") and bundle_path.exists():
+            report["resumed_stages"].append("stage1_maveq_v4")
+            report["maveq_v4"] = json.loads(bundle_path.read_text(encoding="utf-8"))
+        else:
+            v4_cfg["seed"] = args.seed
+            evo = v4_cfg.setdefault("evolution", {})
+            if args.smoke_test:
+                evo["rounds"] = 2
+                evo["latent_candidates_per_round"] = 14
+                evo["screen_per_round"] = 4
+                evo["diffu_grpo_epochs_per_round"] = 2
+            else:
+                evo["rounds"] = args.rounds
+                evo["diffu_grpo_epochs_per_round"] = args.epochs
+
+            ev_v4 = SealedEvaluator(snapshot, rules, sandbox_cfg)
+            eng_v4 = MAVEQv4Engine(ev_v4, v4_cfg, preset=preset, device=env["micro_device"])
+            if args.resume:
+                eng_v4.load_checkpoints(ckpt_dir)
+
+            v4_res = eng_v4.run(run_id="cloud_maveq_v4", score_sealed=args.score_sealed)
+            v4_ckpts = eng_v4.save_checkpoints(ckpt_dir)
+            bundle = {
+                "preset": preset,
+                "backend_runtime": v4_res.backend_runtime,
+                "specialist_total_params": v4_res.specialist_total_params,
+                "estimated_vram_mb": v4_res.estimated_vram_mb,
+                "selected_controller": v4_res.selected_controller,
+                "champion_expressions": v4_res.champion_expressions,
+                "champion_weights": v4_res.champion_weights,
+                "champion_niches": v4_res.champion_niches,
+                "search_candidates_screened": v4_res.search_candidates_screened,
+                "validation_queries_used": v4_res.validation_queries_used,
+                "total_evaluator_trials": v4_res.total_evaluator_trials,
+                "validation_metrics": v4_res.champion_validation_metrics,
+                "sealed_test_metrics": v4_res.champion_sealed_test_metrics,
+                "checkpoints": v4_ckpts,
+            }
+            bundle_path.write_text(json.dumps(bundle, indent=2, default=str), encoding="utf-8")
+            report["maveq_v4"] = bundle
+            report["checkpoints"].update(v4_ckpts)
+            report["checkpoints"]["v4_bundle_json"] = str(bundle_path)
+            resume_state["stage1_v4_done"] = True
+            _save_resume_state(state_path, resume_state)
+            del eng_v4, ev_v4
+
+        report["stage_timings_sec"]["stage1_maveq_v4"] = round(time.time() - t_s1, 2)
+        report["stage_vram_telemetry"]["stage1_maveq_v4"] = cleanup_vram()
+
+    # ------------------------------------------------------------------
+    # Stage 2: Optional Holo-MAVE-Q v3 Reference Stage
+    # ------------------------------------------------------------------
+    if args.mode in ("holo_v3", "full"):
+        t_s2 = time.time()
+        holo_cfg["seed"] = args.seed
+        loop = holo_cfg.setdefault("loop", {})
+        if args.smoke_test:
+            loop.update({"rounds": 2, "latent_candidates_per_round": 12, "screen_per_round": 4, "diffu_grpo_epochs_per_round": 2})
+        ev_h = SealedEvaluator(snapshot, rules, sandbox_cfg)
+        holo_eng = HoloMAVEQEngine(ev_h, holo_cfg, preset=preset, device=env["micro_device"])
+        holo_res = holo_eng.run(run_id="cloud_holo_v3", score_sealed=args.score_sealed)
+        report["checkpoints"].update(holo_eng.save_checkpoints(ckpt_dir))
+        report["holo_maveq_v3"] = {
+            "total_trials": holo_res.total_evaluator_trials,
+            "val_sharpe": holo_res.champion_validation_metrics["net_sharpe"],
+            "val_rank_ic": holo_res.champion_validation_metrics["rank_ic"],
+        }
+        del holo_eng, ev_h
+        report["stage_timings_sec"]["stage2_holo_v3"] = round(time.time() - t_s2, 2)
+        report["stage_vram_telemetry"]["stage2_holo_v3"] = cleanup_vram()
+
+    # ------------------------------------------------------------------
+    # Stage 3: Optional Modular v1 Bi-Level RSI
+    # ------------------------------------------------------------------
+    if args.mode == "modular_v1":
+        t_s3 = time.time()
+        agent_cfg = load_yaml(REPO_ROOT / "configs/agent_v0.yaml")
+        llm_cfg = load_yaml(REPO_ROOT / "configs/llm.yaml")
+        rsi_cfg = copy.deepcopy(load_yaml(REPO_ROOT / "configs/rsi.yaml"))
+        ev_m = SealedEvaluator(snapshot, rules, sandbox_cfg)
+        modular = ModularMicroRSIBackend(preset=preset, diffusion_device=env["micro_device"], hrm_device=env["micro_device"], seed=args.seed)
+        budget = BudgetTracker(BudgetConfig(max_tokens=80_000, max_wall_seconds=180.0, max_gpu_hours=1.0), "cloud_v1")
+        pipe = MultiAgentResearchPipeline(ev_m, modular, dict(agent_cfg["genome"]), dict(agent_cfg.get("acceptance_criteria", {})))
+        _ = pipe.run("cloud_warm", n_rounds=1 if args.smoke_test else 2, n_hypotheses_per_round=2, budget=budget, seed=args.seed)
+        rsi_cfg["outer_iterations"] = 1 if args.smoke_test else 2
+        rsi_cfg["selection_seeds"] = [101] if args.smoke_test else [101, 202]
+        rsi_cfg["self_training"] = {"export_sft_trajectories": False}
+        summ = BiLevelRSIRunner(ev_m, modular, modular, rsi_cfg, agent_cfg, llm_cfg).run_mode("cloud_v1", seed_override=args.seed)
+        report["modular_v1"] = {"best_val_sharpe": summ.best_entry.val_sharpe_mean}
+        del modular, ev_m
+        report["stage_timings_sec"]["stage3_modular_v1"] = round(time.time() - t_s3, 2)
+        report["stage_vram_telemetry"]["stage3_modular_v1"] = cleanup_vram()
+
+    # ------------------------------------------------------------------
+    # Stage 4: 10-Year Veteran 5-Step SFT + DPO Dataset Export & 4-bit QLoRA+DPO Training (<4.5GB VRAM)
+    # ------------------------------------------------------------------
+    t_s4 = time.time()
+    vet_ds_dir = ckpt_dir / "veteran_datasets"
+    ds_rep = build_veteran_sft_and_dpo_datasets(
+        snapshot=snapshot,
+        search_end_date=str(sandbox_cfg["zones"]["search"]["end"]),
+        out_dir=vet_ds_dir,
+        max_examples=24 if args.smoke_test else 90,
+        horizon_days=int(sandbox_cfg.get("prediction_horizon_days", 5)),
+        seed=args.seed,
+    )
+    report["veteran_dataset"] = {
+        "n_sft_examples": ds_rep.n_sft_examples,
+        "n_dpo_pairs": ds_rep.n_dpo_pairs,
+        "sft_path": ds_rep.sft_path,
+        "dpo_path": ds_rep.dpo_path,
+    }
+    if args.enable_veteran_dpo:
+        dpo_out_dir = ckpt_dir / "veteran_slm_qlora_dpo"
+        if args.resume and resume_state.get("stage4_dpo_done") and (dpo_out_dir / "final_veteran_adapter").exists():
+            report["resumed_stages"].append("stage4_veteran_dpo")
+            report["veteran_qlora_dpo"] = {"status": "resumed_existing_adapter", "adapter_dir": str(dpo_out_dir / "final_veteran_adapter")}
+        else:
+            dpo_res = train_veteran_two_stage_qlora_dpo(
+                sft_path=ds_rep.sft_path,
+                dpo_path=ds_rep.dpo_path,
+                output_dir=dpo_out_dir,
+                model_id=args.slm_model,
+                sft_epochs=1 if args.smoke_test else 2,
+                dpo_epochs=1,
+            )
+            report["veteran_qlora_dpo"] = dpo_res
+            if dpo_res.get("status") == "trained_sft_plus_dpo":
+                resume_state["stage4_dpo_done"] = True
+                _save_resume_state(state_path, resume_state)
+    else:
+        report["veteran_qlora_dpo"] = {"status": "disabled_by_flag_use_--enable-veteran-dpo"}
+
+    report["stage_timings_sec"]["stage4_veteran_sft_dpo"] = round(time.time() - t_s4, 2)
+    report["stage_vram_telemetry"]["stage4_veteran_sft_dpo"] = cleanup_vram()
+    report["total_elapsed_sec"] = round(time.time() - t_start, 2)
+
+    print("\n=== [MAVE-Q v4] Free-Cloud Training & Telemetry Summary ===")
+    print(json.dumps(report, indent=2, default=str))
 
 
 if __name__ == "__main__":

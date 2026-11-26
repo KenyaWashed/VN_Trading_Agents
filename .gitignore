@@ -25,3 +25,7 @@ build/
 *.out
 *.bbl
 *.blg
+
+# Local autonomous task queue & scratch state
+tasks.txt
+AUTONOMOUS_STATE.md

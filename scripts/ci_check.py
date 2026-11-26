@@ -17,7 +17,7 @@ def _run(cmd: list[str], cwd: Path) -> None:
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     py = sys.executable
-    _run([py, "-m", "ruff", "check", "src", "tests", "experiments", "paper", "scripts", "train_colab_kaggle.py"], repo_root)
+    _run([py, "-m", "ruff", "check", "src", "tests", "experiments", "paper", "scripts", "train_colab_kaggle.py", "modal_train.py"], repo_root)
     _run([py, "-m", "mypy", "src/vn_rsi"], repo_root)
     _run([py, "-m", "pytest", "tests/"], repo_root)
     if (repo_root / "paper" / "generated_provenance.json").exists():

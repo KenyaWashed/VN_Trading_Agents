@@ -22,6 +22,12 @@ from typing import Any
 import numpy as np
 
 from vn_rsi.models.ast_vocab import MECHANISM_FAMILIES, ASTVocab
+from vn_rsi.models.cloud_presets import (
+    amp_autocast_and_scaler,
+    get_preset_spec,
+    resolve_torch_device,
+    xla_mark_step_if_needed,
+)
 
 try:
     import torch
@@ -48,42 +54,17 @@ class HRMConfig:
 
     @classmethod
     def from_preset(cls, preset: str, seed: int = 42) -> HRMConfig:
-        if preset == "kaggle_max_100m":
-            return cls(
-                preset=preset,
-                d_hidden=768,
-                n_high_steps=4,
-                n_low_steps=4,
-                n_layers_per_block=10,
-                regime_dim=12,
-                max_seq_len=16,
-                learning_rate=1.5e-4,
-                use_amp_fp16=True,
-                seed=seed,
-            )
-        if preset == "kaggle_t4_optimal":
-            return cls(
-                preset=preset,
-                d_hidden=256,
-                n_high_steps=4,
-                n_low_steps=4,
-                n_layers_per_block=4,
-                regime_dim=12,
-                max_seq_len=16,
-                learning_rate=3e-4,
-                use_amp_fp16=True,
-                seed=seed,
-            )
+        spec = get_preset_spec(preset)
         return cls(
-            preset="cpu_fast",
-            d_hidden=64,
-            n_high_steps=3,
+            preset=spec.name,
+            d_hidden=spec.hrm_d_hidden,
+            n_high_steps=4 if spec.name != "cpu_fast" else 3,
             n_low_steps=4,
-            n_layers_per_block=1,
+            n_layers_per_block=spec.hrm_n_layers,
             regime_dim=12,
             max_seq_len=16,
-            learning_rate=1e-3,
-            use_amp_fp16=False,
+            learning_rate=spec.hrm_lr,
+            use_amp_fp16=spec.use_amp,
             seed=seed,
         )
 
@@ -165,8 +146,9 @@ class HRMReasoner:
         self.train_steps_completed = 0
         self.last_loss: float | None = None
 
+        self.is_xla_tpu = False
         if HAS_TORCH:
-            self.device = torch.device(device) if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device, self.is_xla_tpu = resolve_torch_device(device)
             torch.manual_seed(self.config.seed)
             self.net: Any = _HierarchicalRecursiveNet(
                 vocab_size=self.vocab.vocab_size,
@@ -174,7 +156,7 @@ class HRMReasoner:
                 cfg=self.config,
             ).to(self.device)
             self.optimizer: Any = torch.optim.AdamW(self.net.parameters(), lr=self.config.learning_rate, weight_decay=1e-2)
-            self.backend_runtime = f"pytorch:{self.device}"
+            self.backend_runtime = f"pytorch_xla:{self.device}" if self.is_xla_tpu else f"pytorch:{self.device}"
         else:
             self.device = "cpu"
             self.net = None
@@ -290,19 +272,29 @@ class HRMReasoner:
             f_t = torch.tensor(fams, dtype=torch.long, device=self.device)
             win_t = torch.tensor(best_fam_mask, dtype=torch.bool, device=self.device)
 
+            amp_ctx, scaler = amp_autocast_and_scaler(self.device, self.config.use_amp_fp16, self.is_xla_tpu)
             last_loss = 0.0
             for _ in range(epochs):
-                fam_logits, _, pred_ic = self.net(r_t, a_t)
-                loss_ic = F.mse_loss(pred_ic, ic_t)
-                if win_t.any():
-                    loss_pol = F.cross_entropy(fam_logits[win_t], f_t[win_t])
-                else:
-                    loss_pol = torch.tensor(0.0, device=self.device)
-                loss = loss_ic + 0.15 * loss_pol
+                with amp_ctx:
+                    fam_logits, _, pred_ic = self.net(r_t, a_t)
+                    loss_ic = F.mse_loss(pred_ic, ic_t)
+                    if win_t.any():
+                        loss_pol = F.cross_entropy(fam_logits[win_t], f_t[win_t])
+                    else:
+                        loss_pol = torch.tensor(0.0, device=self.device)
+                    loss = loss_ic + 0.15 * loss_pol
                 self.optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
-                self.optimizer.step()
+                if scaler is not None:
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(self.optimizer)
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+                    scaler.step(self.optimizer)
+                    scaler.update()
+                else:
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), 1.0)
+                    self.optimizer.step()
+                xla_mark_step_if_needed(self.is_xla_tpu)
                 self.train_steps_completed += 1
                 last_loss = float(loss.item())
 
@@ -332,6 +324,17 @@ class HRMReasoner:
         out.parent.mkdir(parents=True, exist_ok=True)
         if HAS_TORCH and self.net is not None:
             torch.save({"config": self.config.__dict__, "state_dict": self.net.state_dict()}, out)
-        else:
-            np.savez(out.with_suffix(".npz"), w_sur=self.np_w_surrogate, w_pol=self.np_w_policy)
-        return out
+            return out
+        npz_path = out.with_suffix(".npz")
+        np.savez(npz_path, w_sur=self.np_w_surrogate, w_pol=self.np_w_policy)
+        return npz_path
+
+    def load_checkpoint(self, path: str | Path) -> None:
+        src = Path(path)
+        if HAS_TORCH and self.net is not None and src.exists():
+            ckpt = torch.load(src, map_location=self.device, weights_only=False)
+            self.net.load_state_dict(ckpt["state_dict"])
+        elif src.with_suffix(".npz").exists():
+            data = np.load(src.with_suffix(".npz"))
+            self.np_w_surrogate = np.asarray(data["w_sur"], dtype=float)
+            self.np_w_policy = np.asarray(data["w_pol"], dtype=float)

@@ -1,0 +1,49 @@
+# MAVE-Q v2 Combat Configuration
+# Friction-Aware Quality-Diversity Evolution with Portfolio-Level Credit Assignment
+# Author: Tran Duy Khang — AI Software Engineer / Freelance Vibe Researcher
+
+combat_id: "mave_q_v2_vs_same_topic_miners"
+seed: 2026
+specialist_preset: "auto"   # cpu_fast | kaggle_t4_optimal | kaggle_max_100m
+
+loop:
+  rounds: 8
+  latent_candidates_per_round: 48     # diffusion samples + QD-elite infills + grammar exploration
+  screen_per_round: 24                # exact search-zone screens per round (HRM-pruned, eps-greedy)
+  surrogate_epsilon: 0.30             # fraction of screen slots reserved for exploration
+  max_ensemble_factors: 6
+  max_member_corr: 0.75               # search-zone signal correlation cap for ensemble admission
+  add_candidates_per_round: 6         # portfolio-credit add moves evaluated per round
+  smoothing_grid: [1, 3, 5, 10]       # Friction-Aware Temporal Smoothing (causal ts_mean windows)
+  credit_reward_weight: 1.5           # weight of portfolio marginal credit inside diffu-GRPO reward
+  min_objective_gain: 0.01
+  diffu_grpo_epochs_per_round: 12
+  hrm_epochs_per_round: 12
+
+objective:                            # friction-aware search-zone ensemble objective
+  transfer_weight: 1.0                # CFTC forecast of next-period net Sharpe
+  full_sharpe_weight: 0.25            # shrunk full-search-period net Sharpe
+  min_fold_weight: 0.0
+  ic_weight: 3.0
+  size_penalty: 0.01
+
+transfer_calibration:                 # Cross-Fold Transfer Calibration (search-zone-only meta-learner)
+  window: 2                           # folds [j, j+2) -> predict fold j+2 net Sharpe (forward chaining)
+  ridge: 3.0
+  min_rows: 30
+  fitness_weight: 0.04                # screen fitness = Rank IC + 0.04 * forecast Sharpe
+
+sign_repair_ic_threshold: -0.015
+grammar_exploration_frac: 0.20
+
+# Budget-matched same-topic competitors (same DSL, search-only fitness, validation-only selection)
+competitors:
+  gp_alpha_miner:
+    population: 32
+    generations: 8
+    pool_size: 5
+  random_dsl_search:
+    budget: 256
+    checkpoint_every: 32
+    pool_size: 5
+  alpha101_style_library: {}

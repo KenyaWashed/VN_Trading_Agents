@@ -5,8 +5,8 @@
 experiment_id: "vn_modular_micro_rsi_v1"
 seed: 2026
 
-# Automatically selects "kaggle_t4_optimal" when CUDA GPU is present, or "cpu_fast" on CPU-only laptops
-model_preset: "auto"   # "auto" | "cpu_fast" | "kaggle_t4_optimal"
+# Automatically selects optimal preset for GPU / TPU / CPU
+model_preset: "auto"   # "auto" | "cpu_fast" | "kaggle_t4_optimal" | "kaggle_max_100m" | "cloud_a100_350m" | "tpu_v5e_350m"
 
 models:
   narrator_slm:
