@@ -15,6 +15,7 @@ Every response follows the 5-step Veteran CIO Protocol:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -74,8 +75,14 @@ class VeteranReasoningResponse:
     step4_sizing_and_risk_gate: str
     step5_executive_brief: str
     backend_used: str = "neuro_symbolic_veteran_core"
+    slm_generated_commentary: str = ""
 
     def render_markdown(self) -> str:
+        slm_block = (
+            f"\n**Fine-Tuned SLM Commentary (`{self.backend_used}`)**:\n{self.slm_generated_commentary}\n"
+            if self.slm_generated_commentary
+            else ""
+        )
         return (
             f"### Veteran CIO Analysis — `{self.symbol}` ({self.as_of_date})\n"
             f"- **Regime**: `{self.regime_label}` | **Action**: `{self.action}` | "
@@ -88,6 +95,7 @@ class VeteranReasoningResponse:
             f"3. **Phản biện Pre-Mortem Kịch bản Xấu nhất (Devil's Advocate)**: {self.step3_premortem_devils_advocate}\n"
             f"4. **Tỷ trọng & Cổng Rủi ro T+2.5 (Sizing & Risk Gate)**: {self.step4_sizing_and_risk_gate}\n"
             f"5. **Kết luận Hành động (Executive Brief)**: {self.step5_executive_brief}\n"
+            f"{slm_block}"
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -108,18 +116,41 @@ class VeteranReasoningResponse:
             "step4_sizing_and_risk_gate": self.step4_sizing_and_risk_gate,
             "step5_executive_brief": self.step5_executive_brief,
             "backend_used": self.backend_used,
+            "slm_generated_commentary": self.slm_generated_commentary,
         }
 
 
 class VeteranReasoningEngine:
     """10-Year Veteran CIO Reasoning Engine (Neuro-Symbolic Core + Optional Qwen3 QLoRA/DPO Narrator)."""
 
-    def __init__(self, adapter_dir: str | Path | None = None, base_model_id: str | None = None) -> None:
+    def __init__(
+        self,
+        adapter_dir: str | Path | None = None,
+        base_model_id: str | None = None,
+        use_slm_generation: bool = False,
+    ) -> None:
         self.adapter_dir = Path(adapter_dir) if adapter_dir else None
-        self.base_model_id = base_model_id
+        self.base_model_id = base_model_id or self._infer_base_model_id(self.adapter_dir)
+        self.use_slm_generation = use_slm_generation
         self._slm_model: Any = None
         self._slm_tok: Any = None
         self._slm_loaded = False
+
+    @staticmethod
+    def _infer_base_model_id(adapter_dir: Path | None) -> str | None:
+        if adapter_dir is None or not adapter_dir.exists():
+            return None
+        for fname in ("adapter_config.json", "veteran_training_meta.json"):
+            cfg_path = adapter_dir / fname
+            if cfg_path.exists():
+                try:
+                    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    cand = data.get("base_model_name_or_path") or data.get("base_model_id")
+                    if isinstance(cand, str) and cand.strip():
+                        return cand.strip()
+                except Exception:
+                    continue
+        return None
 
     def _try_load_slm(self) -> bool:
         if self._slm_loaded:
@@ -132,18 +163,70 @@ class VeteranReasoningEngine:
             from peft import PeftModel  # type: ignore[import-not-found]
             from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore[import-not-found]
 
-            if not torch.cuda.is_available():
+            if not torch.cuda.is_available() and not self.use_slm_generation:
                 return False
-            tok = AutoTokenizer.from_pretrained(self.base_model_id, trust_remote_code=True)
-            base = AutoModelForCausalLM.from_pretrained(
-                self.base_model_id, device_map="auto", torch_dtype=torch.float16, trust_remote_code=True
-            )
+            tok_src = str(self.adapter_dir) if (self.adapter_dir / "tokenizer_config.json").exists() else self.base_model_id
+            tok = AutoTokenizer.from_pretrained(tok_src, trust_remote_code=True)
+            if torch.cuda.is_available():
+                load_kwargs: dict[str, Any] = {"device_map": "auto", "trust_remote_code": True}
+                try:
+                    from transformers import BitsAndBytesConfig  # type: ignore[import-not-found]
+
+                    use_bf16 = bool(hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
+                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_quant_type="nf4",
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+                    )
+                except Exception:
+                    load_kwargs["torch_dtype"] = torch.float16
+                base = AutoModelForCausalLM.from_pretrained(self.base_model_id, **load_kwargs)
+            else:
+                base = AutoModelForCausalLM.from_pretrained(
+                    self.base_model_id, torch_dtype=torch.float32, trust_remote_code=True
+                )
             self._slm_model = PeftModel.from_pretrained(base, str(self.adapter_dir))
+            self._slm_model.eval()
             self._slm_tok = tok
             return True
         except Exception:
             self._slm_model = None
             return False
+
+    def generate_slm_commentary(self, ctx: MarketContextSnapshot, max_new_tokens: int = 320) -> str:
+        """Generate natural-language synthesis from the fine-tuned open-source LoRA/DPO adapter."""
+        if not self._try_load_slm() or self._slm_model is None or self._slm_tok is None:
+            return ""
+        try:
+            import torch
+
+            prompt = (
+                f"[Date={ctx.as_of_date} | Symbol={ctx.symbol} ({ctx.exchange})] "
+                f"Mkt20d={ctx.mkt_r20:+.1%}, MktDD60={ctx.mkt_dd60:+.1%}, Breadth={ctx.breadth_20:.0%}, "
+                f"VolRatio={ctx.vol_ratio:.2f}, TraumaProb={ctx.trauma_prob:.0%}, "
+                f"Stock3d={ctx.stock_ret3:+.1%}, Stock20d={ctx.stock_ret20:+.1%}, TShock={ctx.turnover_shock_20d:.2f}x, "
+                f"Foreign5d={ctx.foreign_net_ratio_5d:+.2%}, PIT_Announced={ctx.pit_is_announced}, "
+                f"DistFloor={ctx.dist_to_floor:.1%}, DistCeil={ctx.dist_to_ceiling:.1%}. "
+                f"{ctx.user_question or 'Hãy phân tích theo quy trình 5 bước của Chuyên gia Đầu tư 10 năm kinh nghiệm.'}"
+            )
+            messages = [{"role": "user", "content": prompt}]
+            if getattr(self._slm_tok, "chat_template", None):
+                text_in = self._slm_tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            else:
+                text_in = f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
+            inputs = self._slm_tok(text_in, return_tensors="pt").to(self._slm_model.device)
+            with torch.no_grad():
+                out_ids = self._slm_model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=False,
+                    pad_token_id=self._slm_tok.eos_token_id,
+                )
+            gen_ids = out_ids[0][inputs["input_ids"].shape[-1] :]
+            return str(self._slm_tok.decode(gen_ids, skip_special_tokens=True)).strip()
+        except Exception:
+            return ""
 
     @staticmethod
     def _exchange_band(exchange: str) -> float:
@@ -213,9 +296,9 @@ class VeteranReasoningEngine:
             - 0.65 * float(len(hidden_risks))
             - 0.90 * trauma_score
         )
-        # Shrink extreme logits toward 0.50 for well-calibrated probabilities (low Brier / ECE)
-        win_prob = float(1.0 / (1.0 + np.exp(-0.72 * alpha_logit)))
-        win_prob = round(float(np.clip(win_prob, 0.08, 0.88)), 4)
+        # Well-calibrated logistic scaling for low Brier Score & low ECE without overconfident 0/1 extremes
+        win_prob = float(1.0 / (1.0 + np.exp(-1.25 * alpha_logit)))
+        win_prob = round(float(np.clip(win_prob, 0.03, 0.96)), 4)
 
         # --- Action & Sizing Decision ---
         severe_traps = {"t25_floor_lock_trap", "distress_delisting_halt_risk", "ceiling_unfillable_chase_trap"}
@@ -324,8 +407,11 @@ class VeteranReasoningEngine:
             )
 
         backend = "neuro_symbolic_veteran_core"
+        slm_commentary = ""
         if self._try_load_slm() and self._slm_model is not None and self._slm_tok is not None:
             backend = "qwen3_qlora_dpo_plus_neuro_symbolic"
+            if self.use_slm_generation:
+                slm_commentary = self.generate_slm_commentary(ctx)
 
         return VeteranReasoningResponse(
             symbol=ctx.symbol,
@@ -344,4 +430,5 @@ class VeteranReasoningEngine:
             step4_sizing_and_risk_gate=s4,
             step5_executive_brief=s5,
             backend_used=backend,
+            slm_generated_commentary=slm_commentary,
         )

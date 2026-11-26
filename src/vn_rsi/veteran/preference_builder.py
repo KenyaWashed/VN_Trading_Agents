@@ -18,7 +18,9 @@ Exports:
 from __future__ import annotations
 
 import gc
+import inspect
 import json
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -243,6 +245,70 @@ def build_veteran_sft_and_dpo_datasets(
     )
 
 
+def _filter_supported_kwargs(callable_obj: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Keep only keyword arguments accepted by `callable_obj` across `trl`/`transformers` versions."""
+    try:
+        sig = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return kwargs
+    params = sig.parameters
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return kwargs
+    return {k: v for k, v in kwargs.items() if k in params}
+
+
+def _resolve_lora_target_modules(model: Any) -> list[str] | str:
+    """Auto-detect linear projection modules across Qwen3/Qwen2.5/Llama/Mistral/Gemma/Phi/SmolLM."""
+    leaf_names: set[str] = set()
+    for name, module in model.named_modules():
+        cls_name = module.__class__.__name__
+        if "Linear" in cls_name or cls_name in ("Conv1D",):
+            leaf = name.split(".")[-1]
+            if leaf != "lm_head":
+                leaf_names.add(leaf)
+
+    qwen_llama_attn = ["q_proj", "k_proj", "v_proj", "o_proj"]
+    if all(m in leaf_names for m in qwen_llama_attn):
+        mlp_mods = [m for m in ("gate_proj", "up_proj", "down_proj") if m in leaf_names]
+        return qwen_llama_attn + mlp_mods
+
+    phi_mods: list[str] = [m for m in ("qkv_proj", "o_proj", "gate_up_proj", "down_proj") if m in leaf_names]
+    if phi_mods:
+        return phi_mods
+
+    gpt_neox_mods: list[str] = [
+        m for m in ("query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h") if m in leaf_names
+    ]
+    if gpt_neox_mods:
+        return gpt_neox_mods
+
+    return "all-linear"
+
+
+def _format_chat_sft_text(tok: Any, prompt: str, completion: str) -> str:
+    """Format SFT prompt+completion using the model's native `chat_template` when available."""
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Bạn là Chuyên gia Đầu tư Định lượng 10 năm kinh nghiệm trên thị trường chứng khoán Việt Nam "
+                "(kỷ luật T+2.5, biên độ trần/sàn, chống bẫy thanh khoản và dữ liệu PIT)."
+            ),
+        },
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": completion},
+    ]
+    if getattr(tok, "chat_template", None):
+        try:
+            rendered = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+            if isinstance(rendered, str) and rendered.strip():
+                return rendered
+        except Exception:
+            pass
+    eos = getattr(tok, "eos_token", "") or "<|im_end|>"
+    return f"<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n{completion}{eos}"
+
+
 def train_veteran_two_stage_qlora_dpo(
     sft_path: str | Path,
     dpo_path: str | Path,
@@ -251,11 +317,14 @@ def train_veteran_two_stage_qlora_dpo(
     sft_epochs: int = 2,
     dpo_epochs: int = 1,
     max_seq_len: int = 1024,
+    device_index: int = 0,
+    strict_gpu: bool = False,
 ) -> dict[str, Any]:
     """2-Stage Lightweight Trainer: 4-bit QLoRA SFT -> DPO (<4.5 GB VRAM on Qwen3-1.7B/4B on Free T4).
 
-    Gracefully returns a calibrated CPU fallback summary when CUDA or optional HF/Unsloth packages
-    are unavailable, ensuring zero runtime crashes on 0-GPU CI machines.
+    Gracefully returns a calibrated CPU fallback summary when CUDA is unavailable on 0-GPU CI machines.
+    When `strict_gpu=True` on a CUDA machine, raises any training/dependency error with full diagnostics
+    instead of silently swallowing it.
     """
     sft_p = Path(sft_path)
     dpo_p = Path(dpo_path)
@@ -276,7 +345,7 @@ def train_veteran_two_stage_qlora_dpo(
             "reason": f"PyTorch not installed ({exc}); VeteranReasoningEngine operates in instant CPU Neuro-Symbolic mode.",
             "n_sft_ready": len(sft_rows),
             "n_dpo_ready": len(dpo_rows),
-            "estimated_t4_vram_gb": 3.4 if "1.7B" in model_id else 4.3,
+            "estimated_t4_vram_gb": 3.4 if "1.7B" in model_id or "1.5B" in model_id else 4.3,
         }
 
     if not torch.cuda.is_available():
@@ -286,100 +355,212 @@ def train_veteran_two_stage_qlora_dpo(
             "model_id": model_id,
             "n_sft_ready": len(sft_rows),
             "n_dpo_ready": len(dpo_rows),
-            "estimated_t4_vram_gb": 3.4 if "1.7B" in model_id else 4.3,
+            "estimated_t4_vram_gb": 3.4 if "1.7B" in model_id or "1.5B" in model_id else 4.3,
         }
 
-    # CUDA path: 4-bit NF4 QLoRA Stage 1 (SFT) -> Stage 2 (DPO) with explicit VRAM cleanup
+    # CUDA path: 4-bit NF4 QLoRA Stage 1 (SFT) -> Stage 2 (DPO) compatible across TRL 0.8..0.25+
     try:
         from datasets import Dataset  # type: ignore[import-not-found]
         from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training  # type: ignore[import-not-found]
         from transformers import (  # type: ignore[import-not-found]
+            AutoConfig,
             AutoModelForCausalLM,
             AutoTokenizer,
             BitsAndBytesConfig,
         )
         from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer  # type: ignore[import-not-found]
 
-        use_bf16 = bool(torch.cuda.is_bf16_supported())
+        has_bnb = True
+        try:
+            import bitsandbytes as _bnb  # type: ignore[import-not-found] # noqa: F401
+        except Exception:
+            has_bnb = False
+
+        gpu_idx = min(max(0, int(device_index)), max(0, torch.cuda.device_count() - 1))
+        use_bf16 = bool(hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
         dtype = torch.bfloat16 if use_bf16 else torch.float16
-        bnb = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=dtype,
-        )
+
         tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
         if tok.pad_token is None:
             tok.pad_token = tok.eos_token
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id, quantization_config=bnb, device_map={"": 0}, trust_remote_code=True
-        )
-        model = prepare_model_for_kbit_training(model)
+        tok.padding_side = "right"
+
+        hf_cfg = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+        already_quantized = getattr(hf_cfg, "quantization_config", None) is not None
+
+        model_kwargs: dict[str, Any] = {
+            "device_map": {"": gpu_idx},
+            "trust_remote_code": True,
+        }
+        if already_quantized:
+            model_kwargs["torch_dtype"] = dtype
+        elif has_bnb:
+            model_kwargs["quantization_config"] = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=dtype,
+            )
+        else:
+            model_kwargs["torch_dtype"] = dtype
+
+        model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
+        model.config.use_cache = False
+
+        if has_bnb or already_quantized:
+            prep_kwargs = _filter_supported_kwargs(
+                prepare_model_for_kbit_training,
+                {
+                    "use_gradient_checkpointing": True,
+                    "gradient_checkpointing_kwargs": {"use_reentrant": False},
+                },
+            )
+            model = prepare_model_for_kbit_training(model, **prep_kwargs)
+        elif hasattr(model, "gradient_checkpointing_enable"):
+            model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+
+        target_modules = _resolve_lora_target_modules(model)
         lora = LoraConfig(
             r=8,
             lora_alpha=16,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            target_modules=target_modules,
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora)
 
-        # Stage 1: SFT
+        optim_name = "paged_adamw_8bit" if has_bnb else "adamw_torch"
+
+        # Stage 1: SFT with native chat template formatting & cross-version SFTConfig/SFTTrainer kwargs
         sft_dir = out_p / "stage1_sft"
-        sft_trainer = SFTTrainer(
-            model=model,
-            processing_class=tok,
-            train_dataset=Dataset.from_list([{"text": r["text"]} for r in sft_rows]),
-            args=SFTConfig(
-                output_dir=str(sft_dir),
-                dataset_text_field="text",
-                max_length=max_seq_len,
-                per_device_train_batch_size=1,
-                gradient_accumulation_steps=4,
-                num_train_epochs=sft_epochs,
-                learning_rate=2e-4,
-                fp16=not use_bf16,
-                bf16=use_bf16,
-                optim="paged_adamw_8bit",
-                save_strategy="no",
-                report_to="none",
-            ),
-        )
+        formatted_sft = [
+            {"text": _format_chat_sft_text(tok, str(r.get("prompt", "")), str(r.get("completion", r.get("text", ""))))}
+            for r in sft_rows
+        ]
+        sft_sig_params = inspect.signature(SFTConfig.__init__).parameters
+        sft_cfg_raw: dict[str, Any] = {
+            "output_dir": str(sft_dir),
+            "dataset_text_field": "text",
+            "per_device_train_batch_size": 1,
+            "gradient_accumulation_steps": 4,
+            "num_train_epochs": sft_epochs,
+            "learning_rate": 2e-4,
+            "fp16": not use_bf16,
+            "bf16": use_bf16,
+            "optim": optim_name,
+            "logging_steps": 5,
+            "gradient_checkpointing": True,
+            "gradient_checkpointing_kwargs": {"use_reentrant": False},
+            "save_strategy": "no",
+            "report_to": "none",
+        }
+        if "max_seq_length" in sft_sig_params:
+            sft_cfg_raw["max_seq_length"] = max_seq_len
+        else:
+            sft_cfg_raw["max_length"] = max_seq_len
+
+        sft_args = SFTConfig(**_filter_supported_kwargs(SFTConfig.__init__, sft_cfg_raw))
+        sft_trainer_params = inspect.signature(SFTTrainer.__init__).parameters
+        sft_trainer_raw: dict[str, Any] = {
+            "model": model,
+            "train_dataset": Dataset.from_list(formatted_sft),
+            "args": sft_args,
+        }
+        if "processing_class" in sft_trainer_params:
+            sft_trainer_raw["processing_class"] = tok
+        elif "tokenizer" in sft_trainer_params:
+            sft_trainer_raw["tokenizer"] = tok
+        if "dataset_text_field" in sft_trainer_params and "dataset_text_field" not in sft_sig_params:
+            sft_trainer_raw["dataset_text_field"] = "text"
+        if "max_seq_length" in sft_trainer_params and "max_seq_length" not in sft_sig_params and "max_length" not in sft_sig_params:
+            sft_trainer_raw["max_seq_length"] = max_seq_len
+
+        sft_trainer = SFTTrainer(**_filter_supported_kwargs(SFTTrainer.__init__, sft_trainer_raw))
         sft_out = sft_trainer.train()
         sft_loss = round(float(sft_out.training_loss), 5)
         del sft_trainer
         gc.collect()
         torch.cuda.empty_cache()
 
+        # Re-assert training state & input grads before Stage 2 DPO
+        model.config.use_cache = False
+        model.train()
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+
         # Stage 2: DPO (reference-free PEFT adapter comparison -> saves 50% VRAM!)
         dpo_dir = out_p / "stage2_dpo"
-        dpo_trainer = DPOTrainer(
-            model=model,
-            ref_model=None,
-            processing_class=tok,
-            train_dataset=Dataset.from_list(dpo_rows),
-            args=DPOConfig(
-                output_dir=str(dpo_dir),
-                beta=0.1,
-                max_length=max_seq_len,
-                max_prompt_length=max_seq_len // 2,
-                per_device_train_batch_size=1,
-                gradient_accumulation_steps=4,
-                num_train_epochs=dpo_epochs,
-                learning_rate=5e-5,
-                fp16=not use_bf16,
-                bf16=use_bf16,
-                optim="paged_adamw_8bit",
-                save_strategy="no",
-                report_to="none",
-            ),
-        )
+        clean_dpo_rows = [
+            {"prompt": str(r["prompt"]), "chosen": str(r["chosen"]), "rejected": str(r["rejected"])}
+            for r in dpo_rows
+        ]
+        dpo_sig_params = inspect.signature(DPOConfig.__init__).parameters
+        dpo_cfg_raw: dict[str, Any] = {
+            "output_dir": str(dpo_dir),
+            "beta": 0.1,
+            "max_length": max_seq_len,
+            "max_prompt_length": max_seq_len // 2,
+            "per_device_train_batch_size": 1,
+            "gradient_accumulation_steps": 4,
+            "num_train_epochs": dpo_epochs,
+            "learning_rate": 5e-5,
+            "fp16": not use_bf16,
+            "bf16": use_bf16,
+            "optim": optim_name,
+            "logging_steps": 5,
+            "gradient_checkpointing": True,
+            "gradient_checkpointing_kwargs": {"use_reentrant": False},
+            "save_strategy": "no",
+            "report_to": "none",
+        }
+        dpo_args = DPOConfig(**_filter_supported_kwargs(DPOConfig.__init__, dpo_cfg_raw))
+        dpo_trainer_params = inspect.signature(DPOTrainer.__init__).parameters
+        dpo_trainer_raw: dict[str, Any] = {
+            "model": model,
+            "ref_model": None,
+            "train_dataset": Dataset.from_list(clean_dpo_rows),
+            "args": dpo_args,
+        }
+        if "processing_class" in dpo_trainer_params:
+            dpo_trainer_raw["processing_class"] = tok
+        elif "tokenizer" in dpo_trainer_params:
+            dpo_trainer_raw["tokenizer"] = tok
+        if "max_length" in dpo_trainer_params and "max_length" not in dpo_sig_params:
+            dpo_trainer_raw["max_length"] = max_seq_len
+        if "max_prompt_length" in dpo_trainer_params and "max_prompt_length" not in dpo_sig_params:
+            dpo_trainer_raw["max_prompt_length"] = max_seq_len // 2
+
+        dpo_trainer = DPOTrainer(**_filter_supported_kwargs(DPOTrainer.__init__, dpo_trainer_raw))
         dpo_out = dpo_trainer.train()
         dpo_loss = round(float(dpo_out.training_loss), 5)
-        peak_vram_gb = round(float(torch.cuda.max_memory_allocated()) / (1024**3), 3)
-        model.save_pretrained(str(out_p / "final_veteran_adapter"))
-        tok.save_pretrained(str(out_p / "final_veteran_adapter"))
+        peak_vram_gb = round(float(torch.cuda.max_memory_allocated(gpu_idx)) / (1024**3), 3)
+
+        adapter_out = out_p / "final_veteran_adapter"
+        adapter_out.mkdir(parents=True, exist_ok=True)
+        model.save_pretrained(str(adapter_out))
+        tok.save_pretrained(str(adapter_out))
+
+        meta_payload = {
+            "status": "trained_sft_plus_dpo",
+            "base_model_id": model_id,
+            "target_modules": target_modules,
+            "sft_epochs": sft_epochs,
+            "dpo_epochs": dpo_epochs,
+            "n_sft_examples": len(sft_rows),
+            "n_dpo_pairs": len(dpo_rows),
+            "sft_loss": sft_loss,
+            "dpo_loss": dpo_loss,
+            "peak_vram_gb": peak_vram_gb,
+            "adapter_dir": str(adapter_out),
+        }
+        (adapter_out / "veteran_training_meta.json").write_text(
+            json.dumps(meta_payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
         del dpo_trainer, model
         gc.collect()
         torch.cuda.empty_cache()
@@ -389,12 +570,19 @@ def train_veteran_two_stage_qlora_dpo(
             "sft_loss": sft_loss,
             "dpo_loss": dpo_loss,
             "peak_vram_gb": peak_vram_gb,
-            "adapter_dir": str(out_p / "final_veteran_adapter"),
+            "adapter_dir": str(adapter_out),
         }
     except Exception as exc:
+        tb_tail = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-1500:]
+        if strict_gpu:
+            raise RuntimeError(
+                f"Open-source SLM QLoRA+DPO training failed for '{model_id}': {exc}\n{tb_tail}"
+            ) from exc
         return {
             "status": "qlora_dpo_deps_unavailable",
-            "error": str(exc)[:220],
+            "model_id": model_id,
+            "error": str(exc),
+            "traceback_tail": tb_tail,
             "n_sft_ready": len(sft_rows),
             "n_dpo_ready": len(dpo_rows),
         }

@@ -130,6 +130,7 @@ def main() -> None:
     parser.add_argument("--lang", default="vi", choices=["vi", "en"], help="Output language (vi | en)")
     parser.add_argument("--checkpoint-dir", default="artifacts/checkpoints", help="Directory containing MAVE-Q v4 checkpoints")
     parser.add_argument("--slm-base-model", default=None, help="Optional HuggingFace base SLM ID if QLoRA/DPO adapter exists")
+    parser.add_argument("--use-slm-gen", action="store_true", help="Also run open-source LoRA/DPO SLM generation when adapter exists")
     parser.add_argument("--json", action="store_true", help="Emit structured JSON instead of Markdown brief")
     args = parser.parse_args()
 
@@ -147,6 +148,7 @@ def main() -> None:
     engine = VeteranReasoningEngine(
         adapter_dir=adapter_dir if adapter_dir.exists() else None,
         base_model_id=args.slm_base_model,
+        use_slm_generation=args.use_slm_gen,
     )
     ctx = _build_context_from_snapshot(
         symbol=args.symbol.upper(),

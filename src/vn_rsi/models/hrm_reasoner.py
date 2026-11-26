@@ -117,17 +117,21 @@ if HAS_TORCH:
             x_ast = self.tok_emb(ast_tokens).mean(dim=1)
 
             z_h = x_reg.clone()
-            z_l = torch.zeros(bsz, self.cfg.d_hidden, device=regime_vec.device)
+            z_l = torch.zeros(bsz, self.cfg.d_hidden, device=regime_vec.device, dtype=self.low_cell.weight_ih.dtype)
+            dev_type = regime_vec.device.type if regime_vec.device.type in ("cuda", "xla", "cpu") else "cpu"
+            cell_dtype = self.low_cell.weight_ih.dtype
 
             # Hierarchical multi-timescale recursion: for each slow step, iterate n_low fast steps
             for _ in range(self.cfg.n_high_steps):
                 for _ in range(self.cfg.n_low_steps):
-                    low_in = torch.cat([z_h, x_ast], dim=-1)
-                    z_l = self.low_cell(low_in, z_l)
+                    with torch.amp.autocast(device_type=dev_type, enabled=False):
+                        low_in = torch.cat([z_h.to(cell_dtype), x_ast.to(cell_dtype)], dim=-1)
+                        z_l = self.low_cell(low_in, z_l.to(cell_dtype))
                     for blk in self.low_blocks:
                         z_l = blk(z_l)
-                high_in = torch.cat([z_l, x_reg], dim=-1)
-                z_h = self.high_cell(high_in, z_h)
+                with torch.amp.autocast(device_type=dev_type, enabled=False):
+                    high_in = torch.cat([z_l.to(cell_dtype), x_reg.to(cell_dtype)], dim=-1)
+                    z_h = self.high_cell(high_in, z_h.to(cell_dtype))
                 for blk in self.high_blocks:
                     z_h = blk(z_h)
 

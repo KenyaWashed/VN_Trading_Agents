@@ -743,12 +743,14 @@ class TopologicalTreeDiffusion:
                 x_noisy[rmask] = self.vocab.mask_id
                 mr = torch.full((len(items),), ratio, dtype=torch.float32, device=self.device)
                 with amp_ctx:
-                    lp = F.log_softmax(self.net(x_noisy, p_t, s_t, d_t, f_t, mr), dim=-1)
+                    lp = F.log_softmax(self.net(x_noisy, p_t, s_t, d_t, f_t, mr).float(), dim=-1)
                     nll = F.nll_loss(
                         lp.view(-1, self.vocab.vocab_size), x_clean.view(-1), reduction="none"
                     ).view(x_clean.shape)
                     seq_nll = (nll * rmask.float()).sum(dim=1) / rmask.float().sum(dim=1).clamp(min=1.0)
-                    loss = (adv_t * seq_nll).mean() + self.kl_beta * F.kl_div(lp, ref_lp.exp(), reduction="batchmean")
+                    loss = (adv_t * seq_nll).mean() + self.kl_beta * F.kl_div(
+                        lp, ref_lp.float().exp(), reduction="batchmean"
+                    )
                 self.opt.zero_grad()
                 if scaler is not None:
                     scaler.scale(loss).backward()
@@ -853,12 +855,22 @@ if HAS_TORCH:
             x_reg = self.regime_enc(regime_vec)
             z_h = x_reg
             z_l = x_tree
+            dev_type = toks.device.type if toks.device.type in ("cuda", "xla", "cpu") else "cpu"
+            cell_dtype = self.low_cell.weight_ih.dtype
             for _ in range(2):
                 for _ in range(2):
-                    z_l = self.low_cell(torch.cat([z_h, x_tree], dim=-1), z_l)
+                    with torch.amp.autocast(device_type=dev_type, enabled=False):
+                        z_l = self.low_cell(
+                            torch.cat([z_h.to(cell_dtype), x_tree.to(cell_dtype)], dim=-1),
+                            z_l.to(cell_dtype),
+                        )
                     for blk in self.low_blocks:
                         z_l = blk(z_l)
-                z_h = self.high_cell(torch.cat([z_l, x_reg], dim=-1), z_h)
+                with torch.amp.autocast(device_type=dev_type, enabled=False):
+                    z_h = self.high_cell(
+                        torch.cat([z_l.to(cell_dtype), x_reg.to(cell_dtype)], dim=-1),
+                        z_h.to(cell_dtype),
+                    )
                 for blk in self.high_blocks:
                     z_h = blk(z_h)
             # Stack (B, H, 2) predictions for (utility, turnover)

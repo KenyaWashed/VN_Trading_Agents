@@ -424,7 +424,7 @@ class DiscreteASTDiffusion:
 
                 with amp_ctx:
                     logits = self.net(x_noisy, f_t, mr_t)
-                    log_probs = F.log_softmax(logits, dim=-1)
+                    log_probs = F.log_softmax(logits.float(), dim=-1)
                     nll = F.nll_loss(
                         log_probs.view(-1, self.vocab.vocab_size),
                         x_clean.view(-1),
@@ -433,7 +433,7 @@ class DiscreteASTDiffusion:
                     seq_nll = (nll * rand_mask.float()).sum(dim=1) / rand_mask.float().sum(dim=1).clamp(min=1.0)
                     # Minimize +A_g * NLL (= maximize A_g * log p), pushing up positive-advantage & down negative-advantage!
                     pg_loss = (adv_t * seq_nll).mean()
-                    kl_div = F.kl_div(log_probs, ref_log_probs.exp(), reduction="batchmean")
+                    kl_div = F.kl_div(log_probs, ref_log_probs.float().exp(), reduction="batchmean")
                     loss = pg_loss + self.config.kl_beta * kl_div
 
                 self.optimizer.zero_grad()

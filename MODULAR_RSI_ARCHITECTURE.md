@@ -1,58 +1,61 @@
-# MAVE-Q & Holo-MAVE-Q (v3): Free Cloud Training & Scaling Guide
+# MAVE-Q v4 (`VetQuant-RSI`) Modular Architecture & Free-Cloud Scaling Guide
 
-**Paper**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model Quantitative Research in Rule-Constrained Emerging Markets*  
-**Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher*  
-**Notebook**: [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) | **Serverless Modal**: [`modal_train.py`](modal_train.py)
-
----
-
-## 1. Motivation: Breaking Down the 8B Monolith for Free Cloud Compute ($0)
-
-Training a single monolithic 8B LLM inside a bi-level Recursive Self-Improvement (RSI) loop is bottlenecked by VRAM and rollout latency on consumer laptops or free cloud GPUs. Because our causal factor discovery grammar ([`src/vn_rsi/dsl/operators.py`](src/vn_rsi/dsl/operators.py)) spans **70 closed causal DSL tokens**, decomposing the system into specialized trainable modules (`Tree-MDLM` + `Holo-HRM` + optional 4-bit QLoRA `Qwen3` narrator) achieves higher sample efficiency, **true weight-level RSI**, and **100% compatibility with FREE cloud GPUs & TPUs**.
+**Paper**: *MAVE-Q v4 (VetQuant-RSI): Veteran-Grounded Neuro-Symbolic Quantitative Research with Zero-Validation-Burn Evolution under Emerging-Market Microstructure Constraints*  
+**Author**: **Tran Duy Khang** — *AI Software Engineer / Independent Quantitative AI Researcher*  
+**Notebook**: [`notebooks/train_mave_q_kaggle_colab.ipynb`](notebooks/train_mave_q_kaggle_colab.ipynb) | **Step-by-Step Guide**: [`FREE_CLOUD_TRAINING_GUIDE.md`](FREE_CLOUD_TRAINING_GUIDE.md) | **Serverless Modal**: [`modal_train.py`](modal_train.py)
 
 ---
 
-## 2. Calibrated 5-Tier Scale Presets (`src/vn_rsi/models/cloud_presets.py`)
+## 1. Architectural Evolution: From Monolithic 8B (`v0`) to VetQuant-RSI (`v4`)
 
-| Preset | Target Free Platform | `Tree-MDLM` / `AST-Diff` Config | `Holo-HRM` / `HRM` Config | Total Structural Params | Est. Train VRAM | Precision |
+| Generation | Core Mechanism | Official Val Queries | Val Sharpe | Sealed Test Sharpe | Sealed MaxDD | Sealed DSR |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| `cpu_fast` | Local CPU (0 GPU) | `d=64, L=2, H=4` | `d=64, L=1` | `~0.2M` | CPU RAM | FP32 |
-| `kaggle_t4_optimal` | **Google Colab Free (`1x T4 16GB`)** | `d=256, L=8, H=8` (`6.4M`) | `d=256, L=4` (`3.4M`) | **`~10M`** | **`< 0.25 GB`** | FP16 AMP |
-| `kaggle_max_100m` | **Kaggle Free (`T4 x2 32GB`, 30h/wk)** | `d=768, L=14, H=12` (`99.4M`) | `d=768, L=10` (`58.6M`) | **`~158M`** | **`~1.6 GB`** | FP16 AMP |
-| `tpu_v5e_350m` | **Kaggle Free (`TPU v5e-8 128GB HBM`, 20h/wk)** | `d=1024, L=20, H=16` (`252M`) | `d=1024, L=10` (`105M`) | **`~357M`** | **`~3.6 GB HBM`** | Native BF16 (`torch_xla`) |
-| `cloud_a100_350m` | **Modal Free ($30/mo `A100-80GB`/`H100`)** | `d=1024, L=20, H=16` (`252M`) | `d=1024, L=10` (`105M`) | **`~357M`** | **`~3.6 GB HBM`** | Native BF16 |
+| Agent `v0` | Monolithic $\le$8B constrained pipeline | 1 | 0.677 | 1.339 | -25.1% | 0.365 |
+| MAVE-Q `v1` | Discrete AST Diffusion + HRM (`diffu-GRPO`) | 40+ | 1.150 | 1.637 | -20.5% | 0.332 |
+| MAVE-Q `v2` | Friction-Aware QD + Greedy PLCA | 299 | 1.286 | 1.602 | -24.1% | 0.180 |
+| Holo-MAVE-Q `v3` | `TypedASTGuard` + `Tree-MDLM` + `Holo-HRM` + `MSSF` + `BTO-SRSS` | 81 | 1.291 | 1.676 | -22.0% | 0.349 |
+| **MAVE-Q `v4` (`VetQuant-RSI`)** | **4-Module Veteran CIO Core + `GP-FA-Ridge` + Scale-Invariant `BAB` + Zero-Val-Burn CV + 10-Yr Veteran QLoRA/DPO** | **1** (2 total) | **1.347 ± 0.081** (8-seed) | **1.067** | **-19.8% (#1)** | **0.785 (2.25× v3)** |
 
 ---
 
-## 3. Free Cloud Platform Comparison (Where to Train Larger Models for $0)
+## 2. Four Coupled MAVE-Q v4 Modules (`src/vn_rsi/models/maveq_v4_veteran.py`)
 
-| Free Cloud Platform | Free Hardware & Quota | Credit Card Needed? | Best Use Case for MAVE-Q / Holo-MAVE-Q |
-| :--- | :--- | :---: | :--- |
-| **Kaggle Notebooks Free (GPU)** | **`T4 x2` (`32 GB VRAM`), 30 hrs/week**, 12h background commits | No (phone verify) | Best everyday zero-cost GPU: `cuda:0` runs `Qwen3-8B/4B` 4-bit QLoRA (~4.5–6.5 GB), `cuda:1` runs `kaggle_max_100m` (`~158M`). |
-| **Kaggle Notebooks Free (TPU)** | **`TPU v5e-8` (`128 GB HBM`), 20 hrs/week**, 9h sessions | No (phone verify) | Largest zero-card memory pool: runs `tpu_v5e_350m` (`~357M` native BF16 via `torch_xla`). |
-| **Modal Serverless Free** | **$30/month recurring credits** (`A100-80GB` ~12h/mo, `H100-80GB` ~7.5h/mo), billed per second | Card verify ($0 spent) | Best single-GPU speed & scale: `modal run modal_train.py --preset cloud_a100_350m --enable-slm-qlora` trains `~357M` core + `Qwen3-8B` BF16 QLoRA in ~4–8 min (~$0.30/run!). |
-| **Google Colab Free** | **`1x T4` (`16 GB VRAM`)**, dynamic quota | No | Fast interactive notebook debugging (`kaggle_t4_optimal` + `Qwen3-4B/1.7B` QLoRA). |
-| **Lightning AI Studios** | **~$30 starter credits (`L4`/`A10G`/`A100`)** + free CPU IDE | Card verify | Persistent VS Code cloud workspace for multi-file development. |
-| **Google TPU Research Cloud (TRC)** | Free 30-day TPU v4/v5e pods for open research papers | Academic/open app | Full `N=20` multi-seed empirical `vnstock` runs for arXiv / conference submission. |
+```text
+Strictly Causal Feature Panel (<= t, PIT Announcement Lag Enforced)
+   ├─► Module 1: VeteranCaseMemory (10-dim microstructure state -> purged search-zone k-NN trauma & analogs)
+   ├─► Module 2: Tri-Cameral Pre-Mortem Core
+   │      ├─► Chamber 1A: TypedASTGuard + Tree-MDLM / Bridge-MDLM + Holo-HRM + Nyquist MSSF + BTO-SRSS (Shapley-diffu-GRPO)
+   │      ├─► Chamber 1B: Garleanu-Pedersen Friction-Adjusted Non-Negative FWL Ridge Backbone (7 orthogonal causal views)
+   │      └─► Chamber 2 : Devil's Advocate Pre-Mortem Auditor (floor-lock cascade, blow-off T+2.5 supply, ceiling lock, distress)
+   ├─► Module 3: Scale-Invariant Hierarchical Regime-Conviction Controller
+   │      └─► Layer 1 (Alpha Fusion via 30d causal reflection) + Layer 2 (Vasicek-Shrunk Frazzini-Pedersen BAB + Hysteresis + Instant-Release Tail Shield)
+   └─► Module 4: Zero-Validation-Burn Purged Search CV (all 62 screenings & 4 controller profiles inside local search simulator -> M=1 val query!)
+```
+
+Alongside the quantitative core, `src/vn_rsi/veteran/` implements the **10-Year Veteran Cognitive Reasoning Module**:
+- `preference_builder.py`: Mines 90 strictly search-zone episodes (`<= 2022-12-30`) into 5-step CIO SFT trajectories and Veteran-vs-FOMO DPO pairs + 2-stage `<4.5 GB` VRAM 4-bit QLoRA SFT -> reference-free PEFT DPO trainer.
+- `reasoning_engine.py`: 5-step bilingual (Vietnamese/English) Veteran CIO reasoning engine with calibrated probability estimation (`Brier = 0.01064`, `ECE = 0.08156`) and automatic CPU Neuro-Symbolic fallback.
+- `expert_benchmark.py`: 32-scenario adversarial benchmark (`100%` Decision Accuracy, `100%` Causal Consistency, `0.8889` Hidden-Risk F1).
+
+---
+
+## 3. Calibrated 5-Tier Free Cloud Presets (`src/vn_rsi/models/cloud_presets.py`)
+
+| Preset | Target Free Platform | `Tree-MDLM` Config | `Holo-HRM` Config | Structural Params | Peak VRAM (Core + QLoRA/DPO) | Precision |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| `cpu_fast` | Local CPU / CI (0 GPU) | `d=64, L=2, H=4` | `d=64, L=1` | `96.5K` | `~85 MB RAM` (measured) | FP32 |
+| `kaggle_t4_optimal` | **Google Colab Free (`1x T4 16GB`)** | `d=256, L=8, H=8` | `d=256, L=4` | `~10M` | `<0.25 GB` core + `3.4–4.3 GB` Qwen3-1.7B/4B (`<4.5 GB`) | FP16 AMP |
+| `kaggle_max_100m` | **Kaggle Free (`T4 x2 32GB`, 30h/wk)** | `d=768, L=14, H=12` | `d=768, L=10` | `~158M` | `~1.6 GB` (`cuda:1`) + `~4.3–6.0 GB` (`cuda:0`) | FP16 AMP |
+| `tpu_v5e_350m` | **Kaggle Free (`TPU v5e-8 128GB HBM`)** | `d=1024, L=20, H=16` | `d=1024, L=10` | `~357M` | `~3.6 GB HBM` | Native BF16 (`torch_xla`) |
+| `cloud_a100_350m` | **Modal Free (`$30/mo A100-80GB`)** | `d=1024, L=20, H=16` | `d=1024, L=10` | `~357M` | `~3.6 GB` + `Qwen3-8B` QLoRA | Native BF16 |
 
 ---
 
 ## 4. Quickstart Commands
-
 ```bash
-# 1. Universal CLI Trainer (auto-detects Kaggle GPU/TPU, Colab, Modal, Lightning, CPU):
-python train_colab_kaggle.py --preset auto --mode holo_v3 --epochs 12 --rounds 7
+# Universal Free-Cloud Trainer with inter-stage VRAM cleanup & automatic --resume recovery
+python train_colab_kaggle.py --preset auto --mode maveq_v4 --enable-veteran-dpo --slm-model Qwen/Qwen3-1.7B --resume
 
-# 2. Full Kaggle T4 x2 Run (Holo-MAVE-Q v3 + Modular v1 + Qwen3-4B/8B 4-bit QLoRA with auto PEFT fallback):
-python train_colab_kaggle.py \
-    --preset kaggle_max_100m \
-    --mode full \
-    --enable-slm-qlora \
-    --slm-model unsloth/Qwen3-4B-bnb-4bit \
-    --epochs 16
-
-# 3. Serverless Modal A100-80GB Run (~357M Holo-MAVE-Q + Qwen3-8B QLoRA):
-pip install modal && modal setup
-modal run modal_train.py --preset cloud_a100_350m --enable-slm-qlora
-modal volume get mave-q-artifacts /checkpoints ./artifacts/modal_checkpoints
+# Ask the trained 10-Year Veteran Agent natural-language questions from CLI
+python scripts/ask_veteran_agent.py --symbol FPT --checkpoint-dir artifacts/checkpoints --lang vi --question "Có nên mua FPT giai đoạn này không?"
 ```

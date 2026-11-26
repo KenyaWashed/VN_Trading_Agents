@@ -48,6 +48,7 @@ from vn_rsi.rsi import BiLevelRSIRunner  # noqa: E402
 from vn_rsi.utils import BudgetConfig, BudgetTracker, load_yaml, set_global_seed  # noqa: E402
 from vn_rsi.veteran import (  # noqa: E402
     build_veteran_sft_and_dpo_datasets,
+    push_trained_veteran_to_hub,
     train_veteran_two_stage_qlora_dpo,
 )
 
@@ -130,6 +131,13 @@ def main() -> None:
         action="store_true",
         help="Run 2-stage 4-bit QLoRA SFT + DPO veteran reasoning trainer (auto CPU fallback if 0 GPU)",
     )
+    parser.add_argument(
+        "--strict-slm",
+        action="store_true",
+        help="Fail loudly with full traceback if GPU QLoRA+DPO training encounters an error",
+    )
+    parser.add_argument("--sft-epochs", type=int, default=None, help="SFT epochs for open-source SLM (default: 2, smoke: 1)")
+    parser.add_argument("--dpo-epochs", type=int, default=1, help="DPO epochs for open-source SLM (default: 1)")
     parser.add_argument("--epochs", type=int, default=10, help="diffu-GRPO training epochs per round")
     parser.add_argument("--rounds", type=int, default=6, help="Evolution rounds")
     parser.add_argument("--seed", type=int, default=2026)
@@ -137,6 +145,15 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true", help="Resume automatically from last completed stage checkpoint")
     parser.add_argument("--score-sealed", action="store_true", help="Run single-shot sealed_test on frozen champion")
     parser.add_argument("--smoke-test", action="store_true", help="Fast 2-round dry run to verify cloud/local runtime")
+    parser.add_argument(
+        "--hf-repo-id",
+        default="",
+        help="Optional Hugging Face repo ID ('username/repo' or 'repo') to push trained model/adapter upon completion",
+    )
+    parser.add_argument("--hf-token", default=None, help="Optional HF write token (prefer HF_TOKEN env / Colab / Kaggle Secret)")
+    parser.add_argument("--hf-private", action="store_true", help="Create private Hugging Face repository when pushing")
+    parser.add_argument("--hf-merge-16bit", action="store_true", help="Merge LoRA adapter into FP16 standalone weights before pushing")
+    parser.add_argument("--hf-dataset-repo", default="", help="Optional Hugging Face Dataset repo ID to push SFT+DPO JSONL files")
     args = parser.parse_args()
 
     t_start = time.time()
@@ -292,17 +309,26 @@ def main() -> None:
     }
     if args.enable_veteran_dpo:
         dpo_out_dir = ckpt_dir / "veteran_slm_qlora_dpo"
+        slm_dev_str = str(env.get("slm_device", "cuda:0"))
+        slm_gpu_idx = int(slm_dev_str.split(":")[-1]) if slm_dev_str.startswith("cuda:") and slm_dev_str.split(":")[-1].isdigit() else 0
+        eff_sft_epochs = args.sft_epochs if args.sft_epochs is not None else (1 if args.smoke_test else 2)
         if args.resume and resume_state.get("stage4_dpo_done") and (dpo_out_dir / "final_veteran_adapter").exists():
             report["resumed_stages"].append("stage4_veteran_dpo")
-            report["veteran_qlora_dpo"] = {"status": "resumed_existing_adapter", "adapter_dir": str(dpo_out_dir / "final_veteran_adapter")}
+            report["veteran_qlora_dpo"] = {
+                "status": "resumed_existing_adapter",
+                "model_id": args.slm_model,
+                "adapter_dir": str(dpo_out_dir / "final_veteran_adapter"),
+            }
         else:
             dpo_res = train_veteran_two_stage_qlora_dpo(
                 sft_path=ds_rep.sft_path,
                 dpo_path=ds_rep.dpo_path,
                 output_dir=dpo_out_dir,
                 model_id=args.slm_model,
-                sft_epochs=1 if args.smoke_test else 2,
-                dpo_epochs=1,
+                sft_epochs=eff_sft_epochs,
+                dpo_epochs=args.dpo_epochs,
+                device_index=slm_gpu_idx,
+                strict_gpu=args.strict_slm,
             )
             report["veteran_qlora_dpo"] = dpo_res
             if dpo_res.get("status") == "trained_sft_plus_dpo":
@@ -315,8 +341,31 @@ def main() -> None:
     report["stage_vram_telemetry"]["stage4_veteran_sft_dpo"] = cleanup_vram()
     report["total_elapsed_sec"] = round(time.time() - t_start, 2)
 
+    report_path = ckpt_dir / "training_report.json"
+    report_path.write_text(json.dumps(report, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
+
+    # ------------------------------------------------------------------
+    # Stage 5: Optional Push Trained Model / Adapter / Dataset to Hugging Face Hub
+    # ------------------------------------------------------------------
+    if args.hf_repo_id and args.hf_repo_id.strip():
+        t_s5 = time.time()
+        hf_res = push_trained_veteran_to_hub(
+            checkpoint_dir=ckpt_dir,
+            hf_repo_id=args.hf_repo_id.strip(),
+            token=args.hf_token,
+            private=args.hf_private,
+            merge_16bit=args.hf_merge_16bit,
+            base_model_id=args.slm_model,
+            hf_dataset_repo=args.hf_dataset_repo.strip() or None,
+            training_summary=report,
+        )
+        report["huggingface_push"] = hf_res
+        report["stage_timings_sec"]["stage5_hf_push"] = round(time.time() - t_s5, 2)
+        report["total_elapsed_sec"] = round(time.time() - t_start, 2)
+        report_path.write_text(json.dumps(report, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
+
     print("\n=== [MAVE-Q v4] Free-Cloud Training & Telemetry Summary ===")
-    print(json.dumps(report, indent=2, default=str))
+    print(json.dumps(report, indent=2, default=str, ensure_ascii=False))
 
 
 if __name__ == "__main__":

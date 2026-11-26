@@ -529,6 +529,54 @@
       "run_id": "phase7_holo_maveq_combat"
     },
     {
+      "table": "main_results",
+      "row": "maveq_v4",
+      "col": "val_rank_ic",
+      "formatted": "0.1071",
+      "raw": 0.10708,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "main_results",
+      "row": "maveq_v4",
+      "col": "val_sharpe",
+      "formatted": "1.268",
+      "raw": 1.2684,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "main_results",
+      "row": "maveq_v4",
+      "col": "test_rank_ic",
+      "formatted": "0.0654",
+      "raw": 0.06544,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "main_results",
+      "row": "maveq_v4",
+      "col": "test_sharpe",
+      "formatted": "1.067",
+      "raw": 1.0668,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "main_results",
+      "row": "maveq_v4",
+      "col": "test_ret",
+      "formatted": "0.244",
+      "raw": 0.24391,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "main_results",
+      "row": "maveq_v4",
+      "col": "test_dsr",
+      "formatted": "0.785",
+      "raw": 0.7852,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
       "table": "rsi_ablations",
       "row": "full_rsi_8b",
       "col": "best_val_composite",
@@ -1447,6 +1495,1206 @@
       "formatted": "0.0938",
       "raw": 0.0938,
       "run_id": "phase7_holo_maveq_ablation"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "vnindex_buy_hold",
+      "col": "test_rank_ic",
+      "formatted": "0.0000",
+      "raw": 0.0,
+      "run_id": "phase2_baselines"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "vnindex_buy_hold",
+      "col": "test_sharpe",
+      "formatted": "1.248",
+      "raw": 1.2477,
+      "run_id": "phase2_baselines"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "vnindex_buy_hold",
+      "col": "test_sortino",
+      "formatted": "1.253",
+      "raw": 1.2529,
+      "run_id": "phase2_baselines"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "vnindex_buy_hold",
+      "col": "test_ret",
+      "formatted": "0.860",
+      "raw": 0.85999,
+      "run_id": "phase2_baselines"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "vnindex_buy_hold",
+      "col": "test_mdd",
+      "formatted": "-0.479",
+      "raw": -0.47934,
+      "run_id": "phase2_baselines"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "vnindex_buy_hold",
+      "col": "test_dsr",
+      "formatted": "0.937",
+      "raw": 0.9368,
+      "run_id": "phase2_baselines"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_rank_ic",
+      "formatted": "0.0968",
+      "raw": 0.09681,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_sharpe",
+      "formatted": "1.138",
+      "raw": 1.1384,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_sortino",
+      "formatted": "1.166",
+      "raw": 1.1659,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_ret",
+      "formatted": "0.549",
+      "raw": 0.54855,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_mdd",
+      "formatted": "-0.369",
+      "raw": -0.36908,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Llama-3.3-70B-Instruct",
+      "col": "test_dsr",
+      "formatted": "0.583",
+      "raw": 0.5831,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_rank_ic",
+      "formatted": "0.0977",
+      "raw": 0.09772,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_sharpe",
+      "formatted": "1.015",
+      "raw": 1.0154,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_sortino",
+      "formatted": "0.994",
+      "raw": 0.9944,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_ret",
+      "formatted": "0.328",
+      "raw": 0.32842,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_mdd",
+      "formatted": "-0.315",
+      "raw": -0.31545,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "Qwen2.5-72B-Instruct",
+      "col": "test_dsr",
+      "formatted": "0.374",
+      "raw": 0.3742,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_rank_ic",
+      "formatted": "0.0975",
+      "raw": 0.0975,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_sharpe",
+      "formatted": "1.061",
+      "raw": 1.0611,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_sortino",
+      "formatted": "1.067",
+      "raw": 1.0667,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_ret",
+      "formatted": "0.349",
+      "raw": 0.34896,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_mdd",
+      "formatted": "-0.335",
+      "raw": -0.33533,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "DeepSeek-R1-671B",
+      "col": "test_dsr",
+      "formatted": "0.312",
+      "raw": 0.3125,
+      "run_id": "phase5_frontier_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_rank_ic",
+      "formatted": "0.0014",
+      "raw": 0.00138,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_sharpe",
+      "formatted": "0.168",
+      "raw": 0.1675,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_sortino",
+      "formatted": "0.135",
+      "raw": 0.1352,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_calmar",
+      "formatted": "0.11",
+      "raw": 0.1141,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_ret",
+      "formatted": "0.047",
+      "raw": 0.04692,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_mdd",
+      "formatted": "-0.411",
+      "raw": -0.41132,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "TradingAgents",
+      "col": "test_dsr",
+      "formatted": "0.377",
+      "raw": 0.3772,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_rank_ic",
+      "formatted": "0.0199",
+      "raw": 0.01988,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_sharpe",
+      "formatted": "1.264",
+      "raw": 1.2636,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_sortino",
+      "formatted": "1.275",
+      "raw": 1.275,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_calmar",
+      "formatted": "1.44",
+      "raw": 1.4423,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_ret",
+      "formatted": "0.331",
+      "raw": 0.33112,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_mdd",
+      "formatted": "-0.230",
+      "raw": -0.22957,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinMem",
+      "col": "test_dsr",
+      "formatted": "0.849",
+      "raw": 0.8489,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_rank_ic",
+      "formatted": "0.1064",
+      "raw": 0.10641,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_sharpe",
+      "formatted": "1.514",
+      "raw": 1.5139,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_sortino",
+      "formatted": "1.543",
+      "raw": 1.5431,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_calmar",
+      "formatted": "1.79",
+      "raw": 1.7869,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_ret",
+      "formatted": "0.439",
+      "raw": 0.43924,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_mdd",
+      "formatted": "-0.246",
+      "raw": -0.24581,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "FinAgent",
+      "col": "test_dsr",
+      "formatted": "0.911",
+      "raw": 0.9115,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_rank_ic",
+      "formatted": "0.0988",
+      "raw": 0.09876,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_sharpe",
+      "formatted": "1.040",
+      "raw": 1.04,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_sortino",
+      "formatted": "1.051",
+      "raw": 1.0513,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_calmar",
+      "formatted": "1.04",
+      "raw": 1.0442,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_ret",
+      "formatted": "0.305",
+      "raw": 0.30476,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_mdd",
+      "formatted": "-0.292",
+      "raw": -0.29184,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "RD-Agent(Q)",
+      "col": "test_dsr",
+      "formatted": "0.775",
+      "raw": 0.7752,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_rank_ic",
+      "formatted": "0.0961",
+      "raw": 0.09608,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_sharpe",
+      "formatted": "0.970",
+      "raw": 0.97,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_sortino",
+      "formatted": "0.969",
+      "raw": 0.9692,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_calmar",
+      "formatted": "0.97",
+      "raw": 0.9663,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_ret",
+      "formatted": "0.279",
+      "raw": 0.27907,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_mdd",
+      "formatted": "-0.289",
+      "raw": -0.28881,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "AlphaForge-DE",
+      "col": "test_dsr",
+      "formatted": "0.749",
+      "raw": 0.7489,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "holo_maveq_v3",
+      "col": "test_rank_ic",
+      "formatted": "0.0739",
+      "raw": 0.07387,
+      "run_id": "phase7_holo_maveq_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "holo_maveq_v3",
+      "col": "test_sharpe",
+      "formatted": "1.676",
+      "raw": 1.6757,
+      "run_id": "phase7_holo_maveq_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "holo_maveq_v3",
+      "col": "test_sortino",
+      "formatted": "1.723",
+      "raw": 1.7232,
+      "run_id": "phase7_holo_maveq_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "holo_maveq_v3",
+      "col": "test_ret",
+      "formatted": "0.488",
+      "raw": 0.48784,
+      "run_id": "phase7_holo_maveq_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "holo_maveq_v3",
+      "col": "test_mdd",
+      "formatted": "-0.220",
+      "raw": -0.22025,
+      "run_id": "phase7_holo_maveq_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "holo_maveq_v3",
+      "col": "test_dsr",
+      "formatted": "0.349",
+      "raw": 0.3495,
+      "run_id": "phase7_holo_maveq_combat"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_rank_ic",
+      "formatted": "0.0654",
+      "raw": 0.06544,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_sharpe",
+      "formatted": "1.067",
+      "raw": 1.0668,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_sortino",
+      "formatted": "1.056",
+      "raw": 1.0559,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_calmar",
+      "formatted": "1.23",
+      "raw": 1.2346,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_ret",
+      "formatted": "0.244",
+      "raw": 0.24391,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_mdd",
+      "formatted": "-0.198",
+      "raw": -0.19757,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_global_arena",
+      "row": "maveq_v4",
+      "col": "test_dsr",
+      "formatted": "0.785",
+      "raw": 0.7852,
+      "run_id": "phase10_v4_final_arena"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "full_maveq_v4",
+      "col": "net_sharpe_mean",
+      "formatted": "1.347",
+      "raw": 1.3466,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "full_maveq_v4",
+      "col": "calmar_mean",
+      "formatted": "2.61",
+      "raw": 2.6076,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "full_maveq_v4",
+      "col": "dsr_mean",
+      "formatted": "0.952",
+      "raw": 0.9521,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_case_memory",
+      "col": "net_sharpe_mean",
+      "formatted": "1.422",
+      "raw": 1.4217,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_case_memory",
+      "col": "calmar_mean",
+      "formatted": "2.80",
+      "raw": 2.8041,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_case_memory",
+      "col": "dsr_mean",
+      "formatted": "0.961",
+      "raw": 0.9613,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_pre_mortem",
+      "col": "net_sharpe_mean",
+      "formatted": "1.380",
+      "raw": 1.38,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_pre_mortem",
+      "col": "calmar_mean",
+      "formatted": "2.68",
+      "raw": 2.678,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_pre_mortem",
+      "col": "dsr_mean",
+      "formatted": "0.956",
+      "raw": 0.9564,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_regime_controller",
+      "col": "net_sharpe_mean",
+      "formatted": "1.041",
+      "raw": 1.041,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_regime_controller",
+      "col": "calmar_mean",
+      "formatted": "1.50",
+      "raw": 1.4994,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_regime_controller",
+      "col": "dsr_mean",
+      "formatted": "0.893",
+      "raw": 0.8927,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_zero_val_burn_cv",
+      "col": "net_sharpe_mean",
+      "formatted": "1.319",
+      "raw": 1.3188,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_zero_val_burn_cv",
+      "col": "calmar_mean",
+      "formatted": "2.51",
+      "raw": 2.5057,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_zero_val_burn_cv",
+      "col": "dsr_mean",
+      "formatted": "0.199",
+      "raw": 0.1989,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_typed_tree_mdlm",
+      "col": "net_sharpe_mean",
+      "formatted": "1.366",
+      "raw": 1.366,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_typed_tree_mdlm",
+      "col": "calmar_mean",
+      "formatted": "2.46",
+      "raw": 2.4592,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "no_typed_tree_mdlm",
+      "col": "dsr_mean",
+      "formatted": "0.954",
+      "raw": 0.9537,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_vnindex_buy_hold",
+      "col": "net_sharpe",
+      "formatted": "0.506",
+      "raw": 0.5056,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_vnindex_buy_hold",
+      "col": "calmar",
+      "formatted": "0.59",
+      "raw": 0.5918,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_vnindex_buy_hold",
+      "col": "dsr",
+      "formatted": "0.736",
+      "raw": 0.7356,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_RD-Agent(Q)",
+      "col": "net_sharpe",
+      "formatted": "1.520",
+      "raw": 1.52,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_RD-Agent(Q)",
+      "col": "calmar",
+      "formatted": "3.54",
+      "raw": 3.5361,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_RD-Agent(Q)",
+      "col": "dsr",
+      "formatted": "0.970",
+      "raw": 0.9704,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_AlphaForge-DE",
+      "col": "net_sharpe",
+      "formatted": "1.166",
+      "raw": 1.166,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_AlphaForge-DE",
+      "col": "calmar",
+      "formatted": "2.51",
+      "raw": 2.5079,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_AlphaForge-DE",
+      "col": "dsr",
+      "formatted": "0.926",
+      "raw": 0.9264,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_MAVE-Q_v4",
+      "col": "net_sharpe",
+      "formatted": "1.567",
+      "raw": 1.5675,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_MAVE-Q_v4",
+      "col": "calmar",
+      "formatted": "3.96",
+      "raw": 3.9636,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "VN100_10d_MAVE-Q_v4",
+      "col": "dsr",
+      "formatted": "0.974",
+      "raw": 0.9744,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_vnindex_buy_hold",
+      "col": "net_sharpe",
+      "formatted": "-0.780",
+      "raw": -0.78,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_vnindex_buy_hold",
+      "col": "calmar",
+      "formatted": "-0.58",
+      "raw": -0.5808,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_vnindex_buy_hold",
+      "col": "dsr",
+      "formatted": "0.167",
+      "raw": 0.1673,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_RD-Agent(Q)",
+      "col": "net_sharpe",
+      "formatted": "0.153",
+      "raw": 0.1527,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_RD-Agent(Q)",
+      "col": "calmar",
+      "formatted": "0.17",
+      "raw": 0.1727,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_RD-Agent(Q)",
+      "col": "dsr",
+      "formatted": "0.575",
+      "raw": 0.5752,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_AlphaForge-DE",
+      "col": "net_sharpe",
+      "formatted": "0.227",
+      "raw": 0.2267,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_AlphaForge-DE",
+      "col": "calmar",
+      "formatted": "0.27",
+      "raw": 0.274,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_AlphaForge-DE",
+      "col": "dsr",
+      "formatted": "0.611",
+      "raw": 0.6108,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_MAVE-Q_v4",
+      "col": "net_sharpe",
+      "formatted": "0.294",
+      "raw": 0.294,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_MAVE-Q_v4",
+      "col": "calmar",
+      "formatted": "0.36",
+      "raw": 0.3596,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "US_LIQUID_T1_MAVE-Q_v4",
+      "col": "dsr",
+      "formatted": "0.642",
+      "raw": 0.6424,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_vnindex_buy_hold",
+      "col": "net_sharpe",
+      "formatted": "-0.842",
+      "raw": -0.8416,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_vnindex_buy_hold",
+      "col": "calmar",
+      "formatted": "-0.61",
+      "raw": -0.6073,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_vnindex_buy_hold",
+      "col": "dsr",
+      "formatted": "0.149",
+      "raw": 0.149,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_RD-Agent(Q)",
+      "col": "net_sharpe",
+      "formatted": "-0.032",
+      "raw": -0.0324,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_RD-Agent(Q)",
+      "col": "calmar",
+      "formatted": "-0.04",
+      "raw": -0.0401,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_RD-Agent(Q)",
+      "col": "dsr",
+      "formatted": "0.484",
+      "raw": 0.484,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_AlphaForge-DE",
+      "col": "net_sharpe",
+      "formatted": "-0.144",
+      "raw": -0.1442,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_AlphaForge-DE",
+      "col": "calmar",
+      "formatted": "-0.16",
+      "raw": -0.1578,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_AlphaForge-DE",
+      "col": "dsr",
+      "formatted": "0.429",
+      "raw": 0.429,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_MAVE-Q_v4",
+      "col": "net_sharpe",
+      "formatted": "-0.117",
+      "raw": -0.1173,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_MAVE-Q_v4",
+      "col": "calmar",
+      "formatted": "-0.12",
+      "raw": -0.1163,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "v4_ablations_ood",
+      "row": "CSI_EMERGING_T1_MAVE-Q_v4",
+      "col": "dsr",
+      "formatted": "0.442",
+      "raw": 0.4421,
+      "run_id": "phase9_v4_ablation_and_ood"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Naive_FOMO_Agent",
+      "col": "decision_accuracy_pct",
+      "formatted": "53.12",
+      "raw": 53.12,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Naive_FOMO_Agent",
+      "col": "causal_consistency_pct",
+      "formatted": "84.38",
+      "raw": 84.38,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Naive_FOMO_Agent",
+      "col": "hidden_risk_recall",
+      "formatted": "0.0000",
+      "raw": 0.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Naive_FOMO_Agent",
+      "col": "hidden_risk_f1",
+      "formatted": "0.0000",
+      "raw": 0.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Naive_FOMO_Agent",
+      "col": "brier_score",
+      "formatted": "0.46515",
+      "raw": 0.46515,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Naive_FOMO_Agent",
+      "col": "ece",
+      "formatted": "0.50625",
+      "raw": 0.50625,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Static_Momentum_Analyst",
+      "col": "decision_accuracy_pct",
+      "formatted": "84.38",
+      "raw": 84.38,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Static_Momentum_Analyst",
+      "col": "causal_consistency_pct",
+      "formatted": "100.00",
+      "raw": 100.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Static_Momentum_Analyst",
+      "col": "hidden_risk_recall",
+      "formatted": "0.0000",
+      "raw": 0.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Static_Momentum_Analyst",
+      "col": "hidden_risk_f1",
+      "formatted": "0.0000",
+      "raw": 0.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Static_Momentum_Analyst",
+      "col": "brier_score",
+      "formatted": "0.15670",
+      "raw": 0.1567,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Static_Momentum_Analyst",
+      "col": "ece",
+      "formatted": "0.19625",
+      "raw": 0.19625,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Generic_Rule_Analyst",
+      "col": "decision_accuracy_pct",
+      "formatted": "84.38",
+      "raw": 84.38,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Generic_Rule_Analyst",
+      "col": "causal_consistency_pct",
+      "formatted": "100.00",
+      "raw": 100.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Generic_Rule_Analyst",
+      "col": "hidden_risk_recall",
+      "formatted": "0.1667",
+      "raw": 0.1667,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Generic_Rule_Analyst",
+      "col": "hidden_risk_f1",
+      "formatted": "0.2857",
+      "raw": 0.2857,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Generic_Rule_Analyst",
+      "col": "brier_score",
+      "formatted": "0.18295",
+      "raw": 0.18295,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "Generic_Rule_Analyst",
+      "col": "ece",
+      "formatted": "0.20375",
+      "raw": 0.20375,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "MAVE-Q_v4_Veteran",
+      "col": "decision_accuracy_pct",
+      "formatted": "100.00",
+      "raw": 100.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "MAVE-Q_v4_Veteran",
+      "col": "causal_consistency_pct",
+      "formatted": "100.00",
+      "raw": 100.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "MAVE-Q_v4_Veteran",
+      "col": "hidden_risk_recall",
+      "formatted": "1.0000",
+      "raw": 1.0,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "MAVE-Q_v4_Veteran",
+      "col": "hidden_risk_f1",
+      "formatted": "0.8889",
+      "raw": 0.8889,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "MAVE-Q_v4_Veteran",
+      "col": "brier_score",
+      "formatted": "0.01064",
+      "raw": 0.01064,
+      "run_id": "phase8_veteran_reasoning_eval"
+    },
+    {
+      "table": "veteran_reasoning",
+      "row": "MAVE-Q_v4_Veteran",
+      "col": "ece",
+      "formatted": "0.08156",
+      "raw": 0.08156,
+      "run_id": "phase8_veteran_reasoning_eval"
     }
   ]
 }

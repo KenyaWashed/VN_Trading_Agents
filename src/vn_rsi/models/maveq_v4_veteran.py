@@ -344,64 +344,63 @@ class DevilsAdvocatePreMortem:
 @dataclass(frozen=True)
 class ControllerParams:
     name: str
-    trauma_cash_thresh: float = 0.72
-    dd_cash_thresh: float = -0.14
-    bull_trend_tilt: float = 0.04
+    trauma_cash_thresh: float = 0.68
+    dd_cash_thresh: float = -0.165
+    bull_trend_tilt: float = 0.02
     bear_defense_tilt: float = 0.06
-    hysteresis_bonus: float = 0.30
+    hysteresis_bonus: float = 0.22
     bull_top_k_cap: int = 6
-    kelly_fraction: float = 0.68
-    vol_shock_thresh: float = 1.65
-    floor_stress_thresh: float = 0.08
+    kelly_fraction: float = 0.70
+    vol_shock_thresh: float = 1.60
+    floor_stress_thresh: float = 0.075
     signal_ema_span: int = 1
-    case_memory_gamma: float = 0.06
-    symbolic_blend_alpha: float = 0.55
-    dd_z_cash_thresh: float = 2.00
+    case_memory_gamma: float = 0.10
+    symbolic_blend_alpha: float = 0.45
+    bab_base_tilt: float = 0.22
+    bab_stress_boost: float = 0.28
+    rebound_release_r5: float = 0.012
 
 
 class OrthogonalCausalBackbone:
-    """Chamber 1B: Search-zone purged L2-regularized Ridge over 8 MSSF-smoothed causal VN primitives."""
+    """Chamber 1B: Search-zone Gârleanu–Pedersen Friction-Adjusted Non-Negative FWL Ridge Backbone."""
 
     FEAT_NAMES: tuple[str, ...] = (
-        "mom_ra15",
-        "mom_ra20",
-        "rev_oh3",
-        "flow_5",
-        "flow_15",
         "pit_vq",
         "pit_roe_pb_rank",
-        "micro_safe",
+        "mom_ra15_sm",
+        "mom_skip_3_15",
+        "rev_oh3",
+        "flow_5",
+        "flow_10",
     )
 
-    def __init__(self, ridge_alpha: float = 500.0) -> None:
-        self.ridge_alpha = ridge_alpha
+    def __init__(self, ridge_l2_frac: float = 0.15, gp_turnover_exp: float = 0.48) -> None:
+        self.ridge_l2_frac = ridge_l2_frac
+        self.gp_turnover_exp = gp_turnover_exp
         self._scaler: StandardScaler | None = None
-        self._model: Ridge | None = None
+        self._eff_coef: np.ndarray | None = None
 
     @staticmethod
     def extract_features(panel: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
-        """Strictly causal (information <= t only) MSSF-smoothed economic feature views."""
+        """Strictly causal (information <= t only) orthogonal economic feature views."""
         close = panel["close"]
         ret1 = panel["return_1d"].fillna(0.0)
         vol20 = ret1.rolling(20, min_periods=5).std().fillna(0.015)
         mom15 = close.pct_change(15, fill_method=None).fillna(0.0)
-        mom20 = close.pct_change(20, fill_method=None).fillna(0.0)
+        mom_skip = close.shift(3).pct_change(12, fill_method=None).fillna(0.0)
         tshock = panel["turnover_shock_20d"].fillna(1.0)
         fflow = panel["foreign_net_ratio"].fillna(0.0)
         pit_vq = panel["pit_value_quality"].fillna(0.0)
         pit_roe = panel["pit_roe"].fillna(0.08)
         pit_pb = panel["pit_pb_ratio"].fillna(1.8).clip(lower=0.3)
-        intraday = panel["intraday_range"].fillna(0.02)
-        dist_flr = panel["dist_to_floor"].fillna(0.05)
         return {
-            "mom_ra15": _cs_z(mom15 / (vol20 + 0.006)),
-            "mom_ra20": _cs_z(mom20 / (vol20 + 0.006)),
-            "rev_oh3": _cs_z(-(close.pct_change(3, fill_method=None).fillna(0.0) * tshock.clip(0.5, 2.5))),
-            "flow_5": _cs_z(fflow.rolling(5, min_periods=2).mean().fillna(0.0)),
-            "flow_15": _cs_z(fflow.rolling(15, min_periods=3).mean().fillna(0.0)),
             "pit_vq": _cs_z(pit_vq),
             "pit_roe_pb_rank": _cs_z(pit_roe.rank(axis=1, pct=True) - pit_pb.rank(axis=1, pct=True)),
-            "micro_safe": _cs_z(dist_flr - intraday),
+            "mom_ra15_sm": _cs_z((mom15 / (vol20 + 0.006)).rolling(4, min_periods=1).mean()),
+            "mom_skip_3_15": _cs_z(mom_skip / (vol20 + 0.006)),
+            "rev_oh3": _cs_z(-(close.pct_change(3, fill_method=None).fillna(0.0) * tshock.clip(0.5, 2.5))),
+            "flow_5": _cs_z(fflow.rolling(5, min_periods=2).mean().fillna(0.0)),
+            "flow_10": _cs_z(fflow.rolling(10, min_periods=3).mean().fillna(0.0)),
         }
 
     def fit_on_search(
@@ -409,30 +408,55 @@ class OrthogonalCausalBackbone:
         search_panel: dict[str, pd.DataFrame],
         safe_dates: pd.DatetimeIndex,
         search_fwd: pd.DataFrame,
+        rebal_step: int = 3,
+        top_k: int = 6,
     ) -> OrthogonalCausalBackbone:
         feats = self.extract_features(search_panel)
         syms = list(search_panel["close"].columns)
+        feat_turns = np.asarray(
+            [
+                MAVEQv4Engine._top_k_turnover_proxy(feats[c].reindex(index=safe_dates, columns=syms), rebal_step, top_k)
+                for c in self.FEAT_NAMES
+            ],
+            dtype=float,
+        )
         x_tr = np.column_stack(
             [feats[c].reindex(index=safe_dates, columns=syms).to_numpy(dtype=float).ravel() for c in self.FEAT_NAMES]
         )
         y_tr = search_fwd.reindex(index=safe_dates, columns=syms).to_numpy(dtype=float).ravel()
         valid = np.isfinite(x_tr).all(axis=1) & np.isfinite(y_tr)
-        if int(np.sum(valid)) >= 50:
+        n_valid = int(np.sum(valid))
+        if n_valid >= 50:
             self._scaler = StandardScaler().fit(x_tr[valid])
-            self._model = Ridge(alpha=self.ridge_alpha).fit(self._scaler.transform(x_tr[valid]), y_tr[valid])
+            alpha_scaled = max(10.0, self.ridge_l2_frac * float(n_valid))
+            mdl = Ridge(alpha=alpha_scaled, positive=True).fit(self._scaler.transform(x_tr[valid]), y_tr[valid])
+            # Gârleanu–Pedersen (2013) inverse-turnover damping over Frisch–Waugh–Lovell partial betas
+            raw_c = np.clip(np.asarray(mdl.coef_, dtype=float), 0.0, None)
+            # Prevent redundant fundamental pair from exceeding 46% combined weight
+            fund_sum = raw_c[0] + raw_c[1]
+            total_raw = float(np.sum(raw_c)) + 1e-12
+            if fund_sum > 0.46 * total_raw and fund_sum > 1e-12:
+                scale_f = (0.46 * total_raw) / fund_sum
+                raw_c[0] *= scale_f
+                raw_c[1] *= scale_f
+            gp_w = raw_c / np.power(0.035 + feat_turns, self.gp_turnover_exp)
+            if float(np.sum(gp_w)) <= 1e-12:
+                gp_w = np.ones(len(self.FEAT_NAMES), dtype=float)
+            self._eff_coef = gp_w / (float(np.sum(gp_w)) + 1e-12)
         return self
 
     def predict_panel(self, panel: dict[str, pd.DataFrame]) -> pd.DataFrame:
         close = panel["close"]
         dates = pd.DatetimeIndex(close.index)
         syms = list(close.columns)
-        if self._scaler is None or self._model is None:
+        if self._scaler is None or self._eff_coef is None:
             return pd.DataFrame(0.0, index=dates, columns=syms)
         feats = self.extract_features(panel)
         x_all = np.column_stack(
             [feats[c].reindex(index=dates, columns=syms).to_numpy(dtype=float).ravel() for c in self.FEAT_NAMES]
         )
-        preds = self._model.predict(self._scaler.transform(np.nan_to_num(x_all, nan=0.0))).reshape(len(dates), len(syms))
+        xs = self._scaler.transform(np.nan_to_num(x_all, nan=0.0))
+        preds = (xs @ self._eff_coef).reshape(len(dates), len(syms))
         return _cs_z(pd.DataFrame(preds, index=dates, columns=syms))
 
 
@@ -510,15 +534,24 @@ class HierarchicalRegimeConvictionController:
             mom20_s / (vol20_s + 0.008)
             + 0.4 * _cs_z(panel["foreign_net_ratio"].reindex(index=dates, columns=syms).rolling(5, min_periods=1).mean().fillna(0.0))
         )
-        # Defensive quality view: PIT value-quality + microstructure floor-safety (strictly positive-IC defensive anchor!)
+        # Strictly causal Frazzini-Pedersen (2014) Vasicek-shrunk rolling market beta + idiosyncratic vol view
+        mkt_var120 = mkt_ret.rolling(120, min_periods=15).var().clip(lower=1e-6)
+        mkt_m120 = mkt_ret.rolling(120, min_periods=15).mean()
+        r_m120 = ret1.rolling(120, min_periods=15).mean()
+        cov120 = ret1.mul(mkt_ret, axis=0).rolling(120, min_periods=15).mean().sub(r_m120.mul(mkt_m120, axis=0), axis=0)
+        raw_beta120 = cov120.div(mkt_var120, axis=0).fillna(1.0)
+        shrunk_beta = (0.65 * raw_beta120 + 0.35 * 1.0).clip(0.35, 2.0)
+        bab_risk_z = _cs_z(0.75 * _cs_z(shrunk_beta) + 0.25 * _cs_z(vol20_s))
         floor_safe = (
             panel["dist_to_floor"].reindex(index=dates, columns=syms).fillna(0.05)
             - panel["intraday_range"].reindex(index=dates, columns=syms).fillna(0.02)
         )
-        defensive_view = (
-            0.65 * _cs_z(panel["pit_value_quality"].reindex(index=dates, columns=syms).fillna(0.0))
-            + 0.35 * _cs_z(floor_safe)
+        defensive_view = _cs_z(
+            0.50 * _cs_z(panel["pit_value_quality"].reindex(index=dates, columns=syms).fillna(0.0))
+            + 0.20 * _cs_z(floor_safe)
+            + 0.30 * (-bab_risk_z)
         )
+        floor_1d_s = (panel["dist_to_floor"].reindex(index=dates, columns=syms).fillna(0.05) < 0.015).mean(axis=1).fillna(0.0)
 
         st = state_df.reindex(index=dates).fillna(0.0)
         mem = memory_signals.reindex(index=dates).fillna(0.0)
@@ -528,6 +561,7 @@ class HierarchicalRegimeConvictionController:
         a_mat = alpha_z.to_numpy(dtype=float)
         b_mat = bull_leader.to_numpy(dtype=float)
         d_mat = defensive_view.to_numpy(dtype=float)
+        bab_mat = bab_risk_z.to_numpy(dtype=float)
 
         n_days, n_syms = a_mat.shape
         out_sig = np.full((n_days, n_syms), np.nan, dtype=float)
@@ -538,9 +572,11 @@ class HierarchicalRegimeConvictionController:
         incumbent_mask = np.zeros(n_syms, dtype=bool)
         for t in range(n_days):
             r20 = float(st["mkt_r20"].iloc[t])
+            r5 = float(st["mkt_r5"].iloc[t])
             breadth = float(st["breadth_20"].iloc[t])
             vol_rat = float(st["vol_ratio"].iloc[t])
             floor_3d = float(st["floor_near_3d"].iloc[t])
+            floor_1d = float(floor_1d_s.iloc[t])
             dd60 = float(mkt_dd60.iloc[t])
             trauma_p = float(mem["trauma_prob"].iloc[t])
             trap_r = float(mem["bull_trap_risk"].iloc[t])
@@ -554,20 +590,28 @@ class HierarchicalRegimeConvictionController:
                 + 0.20 * float(np.clip(floor_3d / 0.12, 0.0, 1.0))
             )
 
-            # Clean Dual-Gate Systemic Floor-Lock Circuit Breaker (non-negotiable Veteran T+2.5 tail-risk shield):
-            # Activates ONLY when deep market drawdown coincides with active multi-stock floor-lock contagion.
-            # Zero rebound-flicker oscillation and zero spurious drawdown-only triggers!
-            is_crash = (dd60 <= params.dd_cash_thresh) and (floor_3d >= params.floor_stress_thresh)
+            # Zero-Whipsaw Instant-Release Tail Circuit Breaker:
+            # Only retreats to Cash on simultaneous deep systemic drawdown + active floor-lock contagion,
+            # releasing immediately once daily floor stress subsides or a rebound initiates (zero V-bottom lock-out).
+            is_crash = (
+                (dd60 <= params.dd_cash_thresh)
+                and (floor_3d >= params.floor_stress_thresh)
+                and (floor_1d >= params.floor_stress_thresh * 0.40)
+                and (r5 < params.rebound_release_r5)
+            )
+
+            # Scale-invariant regime boundaries (work identically across VN HOSE, VN100, US T+1, and CSI T+1!)
             is_bull = (
                 (not is_crash)
                 and (r20 > 0.020)
                 and (breadth >= 0.55)
-                and (trauma_score < params.trauma_cash_thresh * 0.90)
+                and (vol_rat < 1.25)
+                and (trauma_score < params.trauma_cash_thresh * 0.85)
             )
             is_cautious = (
                 (not is_crash)
                 and (not is_bull)
-                and ((vol_rat > 1.35) or (dd60 < -0.10) or (trauma_score > 0.45))
+                and ((vol_rat > 1.35) or (dd60 < -0.085) or (trauma_score > 0.44))
             )
 
             if is_crash:
@@ -578,30 +622,34 @@ class HierarchicalRegimeConvictionController:
                 incumbent_mask[:] = False
                 continue
 
-            # Chamber 3: Chief Risk Synthesis (alpha + regime tilt - trauma-scaled pre-mortem + causal hysteresis)
+            # Chamber 3: Chief Risk Synthesis (Alpha + Regime-Adaptive Frazzini-Pedersen BAB - Pre-Mortem + Hysteresis)
             pm_scale = (self.base_pm_w + self.trauma_pm_boost * trauma_score) if use_pre_mortem else 0.0
             row_score = a_mat[t].copy()
             if is_bull:
                 regimes.append("Bull_Conviction")
-                row_score = (1.0 - params.bull_trend_tilt) * row_score + params.bull_trend_tilt * b_mat[t]
+                eff_bab = params.bab_base_tilt * 0.30
+                row_score = (1.0 - params.bull_trend_tilt) * row_score + params.bull_trend_tilt * b_mat[t] - eff_bab * bab_mat[t]
                 k_eff = min(self.top_k, max(5, params.bull_top_k_cap))
-                target_exp = float(np.clip(0.85 + 0.15 * float(mem["bull_conviction"].iloc[t]), 0.85, 1.0))
+                target_exp = float(np.clip(0.88 + 0.12 * float(mem["bull_conviction"].iloc[t]), 0.88, 1.0))
             elif is_cautious:
                 regimes.append("Cautious_Defense")
-                row_score = (1.0 - params.bear_defense_tilt) * row_score + params.bear_defense_tilt * d_mat[t]
+                stress_lvl = float(np.clip(0.55 + trauma_score, 0.45, 1.35))
+                eff_bab = params.bab_base_tilt + params.bab_stress_boost * stress_lvl
+                row_score = (1.0 - params.bear_defense_tilt) * row_score + params.bear_defense_tilt * d_mat[t] - eff_bab * bab_mat[t]
                 k_eff = self.top_k
-                target_exp = float(np.clip(0.55 + 5.0 * max(-0.04, exp_m5), 0.35, 0.75))
+                target_exp = float(np.clip(0.60 + 4.0 * max(-0.04, exp_m5), 0.42, 0.82))
             else:
                 regimes.append("Normal_Alpha")
+                eff_bab = params.bab_base_tilt
+                row_score = row_score - eff_bab * bab_mat[t]
                 k_eff = self.top_k
-                target_exp = 0.90
+                target_exp = 0.92
 
             row_score = np.nan_to_num(row_score - pm_scale * pm_mat[t], nan=0.0, posinf=4.0, neginf=-4.0)
-            # Causal incumbent hold-buffer prevents churn over small rank jitter (reduces 0.10% sell tax drag!)
+            # Gentle incumbent hold-buffer prevents borderline 6th/7th rank jitter while preserving full Rank IC
             row_score = row_score + params.hysteresis_bonus * incumbent_mask.astype(float)
             if use_pre_mortem:
-                # Soft distress/consecutive-floor demotion (protects against ROS/FLC traps without distorting rank IC)
-                row_score = np.where(veto_mat[t], row_score - 0.85, row_score)
+                row_score = np.where(veto_mat[t], row_score - 0.75, row_score)
 
             # Keep full finite cross-section when k_eff == top_k so full-universe Rank IC is preserved!
             if k_eff < self.top_k:
@@ -733,10 +781,26 @@ class MAVEQv4Engine:
         self.pre_mortem = DevilsAdvocatePreMortem(pm_cfg)
         self.controller = HierarchicalRegimeConvictionController(pre_mortem_cfg=pm_cfg, top_k=evaluator.top_k)
 
-        # Fit Chamber 1B: Orthogonal Causal Backbone strictly on search zone (zero validation/test access!)
-        self.backbone = OrthogonalCausalBackbone(ridge_alpha=float(cfg.get("evolution", {}).get("backbone_ridge_alpha", 50.0)))
-        self.backbone.fit_on_search(self.search_panel, self.safe_dates, self.search_fwd)
+        # Fit Chamber 1B: Gârleanu–Pedersen Friction-Adjusted FWL Backbone strictly on search zone (zero val/test access!)
+        evo_cfg = cfg.get("evolution", {})
+        self.backbone = OrthogonalCausalBackbone(
+            ridge_l2_frac=float(evo_cfg.get("backbone_ridge_l2_frac", 0.15)),
+            gp_turnover_exp=float(evo_cfg.get("backbone_gp_turnover_exp", 0.48)),
+        )
+        self.backbone.fit_on_search(
+            self.search_panel,
+            self.safe_dates,
+            self.search_fwd,
+            rebal_step=evaluator.rebalance_every_days,
+            top_k=evaluator.top_k,
+        )
         self.search_backbone_sig = self.backbone.predict_panel(self.search_panel)
+
+        # Search-zone orthogonalized forward residual (Frisch–Waugh–Lovell target for conditional reversal factors!)
+        anc_safe = _cs_z(self.search_backbone_sig.reindex(index=self.safe_dates))
+        fwd_z = _cs_z(self.search_fwd)
+        beta_proj = (anc_safe * fwd_z).mean(axis=1) / ((anc_safe * anc_safe).mean(axis=1) + 1e-8)
+        self.search_fwd_resid = fwd_z.sub(anc_safe.mul(beta_proj, axis=0))
 
         # Precompute strictly causal search-zone auxiliary panels (NEVER touches validation/test)
         self.search_state = compute_causal_microstructure_state(self.search_panel)
@@ -824,6 +888,10 @@ class MAVEQv4Engine:
         raw_sign = 1.0 if raw_mean_ic >= 0.0 else -1.0
         raw_abs_ic = abs(raw_mean_ic)
         raw_turn = self._top_k_turnover_proxy(raw_norm * raw_sign, self.evaluator.rebalance_every_days, self.evaluator.top_k)
+        # Nyquist-matched smoothing: never over-smooth short-horizon reversals or already-low-churn anchors
+        expr_str = raw_spec.root.canonical_expr()
+        if "ts_return(close, w=3)" in expr_str or "return_1d" in expr_str:
+            windows = [w for w in windows if w <= 5] or [1]
         if raw_turn <= 0.10 or (already_sm and raw_turn <= 0.15):
             windows = [1]
 
@@ -839,6 +907,7 @@ class MAVEQv4Engine:
             mean_ic = float(ic_s.mean())
             sign = 1.0 if mean_ic >= 0.0 else -1.0
             abs_ic = abs(mean_ic)
+            # Strict sign-invariance guard: low-pass smoothing must NEVER invert the raw economic sign!
             if w > 1 and (sign != raw_sign or abs_ic < 0.78 * raw_abs_ic):
                 continue
             signed_ic = ic_s * sign
@@ -857,12 +926,17 @@ class MAVEQv4Engine:
             return None
         _, w_star, sign_star = best_choice
         node = raw_spec.root
-        if w_star > 1:
-            node = ASTNode(node_type="op", name="ts_mean", window=w_star, args=[node])
-        eff_sign = sign_star
-        if sign_star < 0.0 and node.depth() <= 4:
+        # Clean double-negation & churn guard: reject noisy high-churn 3d blow-off chasers from symbolic book
+        if sign_star < 0.0 and node.name == "neg" and node.args:
+            node = node.args[0]
+            eff_sign = 1.0
+        elif sign_star < 0.0 and node.depth() <= 4:
             node = ASTNode(node_type="op", name="neg", args=[node])
             eff_sign = 1.0
+        else:
+            eff_sign = sign_star
+        if w_star > 1 and node.depth() <= 4:
+            node = ASTNode(node_type="op", name="ts_mean", window=w_star, args=[node])
         adapted = FactorSpec(
             factor_id=f"{raw_spec.factor_id}_w{w_star}",
             hypothesis_id=raw_spec.hypothesis_id,
@@ -935,10 +1009,22 @@ class MAVEQv4Engine:
             t_node = lambda n: ASTNode(node_type="terminal", name=n)  # noqa: E731
             op_node = lambda n, *a, w=None: ASTNode(node_type="op", name=n, window=w, args=list(a))  # noqa: E731
             extra_v4_seeds = [
-                ("foreign_flow_regime", op_node("ts_mean", t_node("foreign_net_ratio"), w=15)),
+                ("foreign_flow_regime", op_node("ts_mean", t_node("foreign_net_ratio"), w=8)),
                 ("reversal_microstructure", op_node("sub", t_node("dist_to_floor"), t_node("intraday_range"))),
+                (
+                    "momentum_liquidity",
+                    op_node(
+                        "safe_div",
+                        op_node("lag", op_node("ts_return", t_node("close"), w=10), w=3),
+                        op_node("ts_std", t_node("return_1d"), w=20),
+                    ),
+                ),
             ]
-            for fam, node in _curated_domain_seeds() + extra_v4_seeds:
+            all_seeds = _curated_domain_seeds() + extra_v4_seeds
+            # Seed-permuted subset of domain seeds ensures genuine cross-seed trajectory diversity!
+            perm = self.rng.permutation(len(all_seeds))
+            for idx_s in perm[:8]:
+                fam, node = all_seeds[int(idx_s)]
                 fp = node.structural_fingerprint()
                 if fp not in self.seen_raw_fps and (not self.use_typed_tree_mdlm or is_typed_stationary_ast(node)):
                     self.seen_raw_fps.add(fp)
@@ -1028,7 +1114,13 @@ class MAVEQv4Engine:
         return float(np.dot(a, b)) / (float(np.linalg.norm(a) * np.linalg.norm(b)) + 1e-12)
 
     def _select_diverse_basis(self, max_basis: int = 5, max_corr: float = 0.65) -> list[HoloElite]:
-        pos = [e for e in self.archive.all_elites() if e.rank_ic > 0.015 and e.utility > -0.005]
+        pos = [
+            e
+            for e in self.archive.all_elites()
+            if e.rank_ic > 0.025 and e.utility > -0.005 and (e.rank_ic - 0.32 * e.turnover) > -0.005
+        ]
+        if not pos:
+            pos = [e for e in self.archive.all_elites() if e.rank_ic > 0.015 and e.utility > -0.005]
         if not pos:
             return self.archive.all_elites()[: max(1, min(3, len(self.archive.all_elites())))]
         selected: list[HoloElite] = []
@@ -1178,19 +1270,21 @@ class MAVEQv4Engine:
         return [
             ControllerParams(
                 name=str(g["name"]),
-                trauma_cash_thresh=float(g.get("trauma_cash_thresh", 0.72)),
-                dd_cash_thresh=float(g.get("dd_cash_thresh", -0.14)),
-                bull_trend_tilt=float(g.get("bull_trend_tilt", 0.04)),
+                trauma_cash_thresh=float(g.get("trauma_cash_thresh", 0.68)),
+                dd_cash_thresh=float(g.get("dd_cash_thresh", -0.165)),
+                bull_trend_tilt=float(g.get("bull_trend_tilt", 0.02)),
                 bear_defense_tilt=float(g.get("bear_defense_tilt", 0.06)),
-                hysteresis_bonus=float(g.get("hysteresis_bonus", 0.30)),
+                hysteresis_bonus=float(g.get("hysteresis_bonus", 0.22)),
                 bull_top_k_cap=int(g.get("bull_top_k_cap", 6)),
-                kelly_fraction=float(g.get("kelly_fraction", 0.68)),
-                vol_shock_thresh=float(g.get("vol_shock_thresh", 1.65)),
-                floor_stress_thresh=float(g.get("floor_stress_thresh", 0.08)),
+                kelly_fraction=float(g.get("kelly_fraction", 0.70)),
+                vol_shock_thresh=float(g.get("vol_shock_thresh", 1.60)),
+                floor_stress_thresh=float(g.get("floor_stress_thresh", 0.075)),
                 signal_ema_span=int(g.get("signal_ema_span", 1)),
-                case_memory_gamma=float(g.get("case_memory_gamma", 0.06)),
-                symbolic_blend_alpha=float(g.get("symbolic_blend_alpha", 0.55)),
-                dd_z_cash_thresh=float(g.get("dd_z_cash_thresh", 2.00)),
+                case_memory_gamma=float(g.get("case_memory_gamma", 0.10)),
+                symbolic_blend_alpha=float(g.get("symbolic_blend_alpha", 0.45)),
+                bab_base_tilt=float(g.get("bab_base_tilt", 0.22)),
+                bab_stress_boost=float(g.get("bab_stress_boost", 0.28)),
+                rebound_release_r5=float(g.get("rebound_release_r5", 0.012)),
             )
             for g in raw_grid
         ]
@@ -1214,8 +1308,8 @@ class MAVEQv4Engine:
                 purge_self_matches=False,
             )
         )
-        # Tri-Cameral Neuro-Symbolic Fusion: blend symbolic AST book (1A) with orthogonal causal backbone (1B)
-        # using strictly causal 30-day rolling reflection adaptation around the search-CV prior `symbolic_blend_alpha`!
+        # Tri-Cameral Neuro-Symbolic Fusion: blend symbolic AST book (1A) with Gârleanu–Pedersen FWL backbone (1B)
+        # using strictly causal 30-day rolling reflection adaptation around search-CV prior `symbolic_blend_alpha`!
         if self.use_regime_controller and ctrl_params.symbolic_blend_alpha < 0.999:
             anc_alpha = self.backbone.predict_panel(panel).reindex_like(sym_alpha).fillna(0.0)
             ret1 = panel["return_1d"].reindex_like(sym_alpha).fillna(0.0)
@@ -1225,8 +1319,8 @@ class MAVEQv4Engine:
             sr_sym = (p_sym.rolling(30, min_periods=10).mean() / (p_sym.rolling(30, min_periods=10).std() + 1e-4)).fillna(0.0).clip(-1.5, 2.5)
             sr_anc = (p_anc.rolling(30, min_periods=10).mean() / (p_anc.rolling(30, min_periods=10).std() + 1e-4)).fillna(0.0).clip(-1.5, 2.5)
             a_base = float(np.clip(ctrl_params.symbolic_blend_alpha, 0.0, 1.0))
-            dyn_tilt = (0.08 * (sr_sym - sr_anc)).clip(-0.15, 0.15)
-            a_t = (a_base + dyn_tilt).clip(0.35, 0.95)
+            dyn_tilt = (0.06 * (sr_sym - sr_anc)).clip(-0.10, 0.10)
+            a_t = (a_base + dyn_tilt).clip(0.20, 0.85)
             raw_alpha = _cs_z(sym_alpha.mul(a_t, axis=0) + anc_alpha.mul(1.0 - a_t, axis=0))
         else:
             raw_alpha = sym_alpha
@@ -1269,8 +1363,8 @@ class MAVEQv4Engine:
             sr_sym = (p_sym.rolling(30, min_periods=10).mean() / (p_sym.rolling(30, min_periods=10).std() + 1e-4)).fillna(0.0).clip(-1.5, 2.5)
             sr_anc = (p_anc.rolling(30, min_periods=10).mean() / (p_anc.rolling(30, min_periods=10).std() + 1e-4)).fillna(0.0).clip(-1.5, 2.5)
             a_base = float(np.clip(ctrl_params.symbolic_blend_alpha, 0.0, 1.0))
-            dyn_tilt = (0.08 * (sr_sym - sr_anc)).clip(-0.15, 0.15)
-            a_t = (a_base + dyn_tilt).clip(0.35, 0.95)
+            dyn_tilt = (0.06 * (sr_sym - sr_anc)).clip(-0.10, 0.10)
+            a_t = (a_base + dyn_tilt).clip(0.20, 0.85)
             raw_alpha = _cs_z(sym_alpha.mul(a_t, axis=0) + anc_s.mul(1.0 - a_t, axis=0))
         else:
             raw_alpha = sym_alpha
@@ -1401,24 +1495,32 @@ class MAVEQv4Engine:
                 self.diffusion.fit_shapley_diffu_grpo(rollouts, epochs=grpo_epochs)
             self.hrm.fit_replay(self.hrm_replay[-192:])
 
-            # Evaluate both full basis and compact top-3 sub-basis across controller grid strictly on search-zone Purged CV!
-            if r_idx >= max(2, rounds - 2):
-                sub_books: list[tuple[list[HoloElite], list[float]]] = [(active_elites, active_weights)]
-                if len(basis) >= 4:
-                    b3 = basis[:3]
-                    w3 = self._solve_bto_srss(b3)
-                    p3 = [(e, float(w)) for e, w in zip(b3, w3, strict=True) if w > 1e-5]
-                    if p3:
-                        sub_books.append(([e for e, _ in p3], [w for _, w in p3]))
-                for sub_e, sub_w in sub_books:
-                    for cp in ctrl_grid:
-                        cv_sc = self._search_cv_score_candidate(sub_e, sub_w, cp)
-                        fkey = f"{cp.name}|" + "|".join(
-                            f"{e.spec.root.canonical_expr()}:{round(w, 3)}"
-                            for e, w in sorted(zip(sub_e, sub_w, strict=True), key=lambda x: x[0].spec.root.canonical_expr())
+            # Evaluate full multi-niche basis across ALL evolution rounds strictly on search-zone Purged CV (0 val trials!)
+            sub_books: list[tuple[list[HoloElite], list[float]]] = [(active_elites, active_weights)]
+            if len(basis) >= 5:
+                b4 = basis[:4]
+                w4 = self._solve_bto_srss(b4)
+                p4 = [(e, float(w)) for e, w in zip(b4, w4, strict=True) if w > 1e-5]
+                if p4:
+                    sub_books.append(([e for e, _ in p4], [w for _, w in p4]))
+            for sub_e, sub_w in sub_books:
+                for cp in ctrl_grid:
+                    cv_sc = self._search_cv_score_candidate(sub_e, sub_w, cp)
+                    if not self.use_zero_val_burn_cv:
+                        # Ablation mode: burn an official search-zone trial per ensemble evaluation (like v3)
+                        _ = self.evaluator.evaluate_factor_ensemble(
+                            [e.spec for e in sub_e],
+                            [e.sign * w for e, w in zip(sub_e, sub_w, strict=True)],
+                            zone="search",
+                            candidate_id=f"ab_s_r{r_idx}_{cp.name}",
+                            run_id=run_id,
                         )
-                        if fkey not in search_finalists or cv_sc > search_finalists[fkey][0]:
-                            search_finalists[fkey] = (cv_sc, sub_e, sub_w, cp)
+                    fkey = f"{cp.name}|" + "|".join(
+                        f"{e.spec.root.canonical_expr()}:{round(w, 3)}"
+                        for e, w in sorted(zip(sub_e, sub_w, strict=True), key=lambda x: x[0].spec.root.canonical_expr())
+                    )
+                    if fkey not in search_finalists or cv_sc > search_finalists[fkey][0]:
+                        search_finalists[fkey] = (cv_sc, sub_e, sub_w, cp)
 
         if not search_finalists:
             basis = self._select_diverse_basis(max_basis=max_ens, max_corr=max_corr)
