@@ -24,6 +24,8 @@ import argparse
 import copy
 import gc
 import json
+import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -320,16 +322,40 @@ def main() -> None:
                 "adapter_dir": str(dpo_out_dir / "final_veteran_adapter"),
             }
         else:
-            dpo_res = train_veteran_two_stage_qlora_dpo(
-                sft_path=ds_rep.sft_path,
-                dpo_path=ds_rep.dpo_path,
-                output_dir=dpo_out_dir,
-                model_id=args.slm_model,
-                sft_epochs=eff_sft_epochs,
-                dpo_epochs=args.dpo_epochs,
-                device_index=slm_gpu_idx,
-                strict_gpu=args.strict_slm,
-            )
+            # On multi-GPU hosts (e.g. Kaggle T4 x2), isolate Stage 4 in a clean single-GPU worker
+            # (`CUDA_VISIBLE_DEVICES=<slm_gpu_idx>`) so `SFTTrainer` / `DPOTrainer` never hit `nn.DataParallel`!
+            if int(env.get("gpu_count", 0)) > 1:
+                result_json_path = dpo_out_dir / "stage4_worker_result.json"
+                dpo_out_dir.mkdir(parents=True, exist_ok=True)
+                worker_code = (
+                    "import json, sys; from pathlib import Path; "
+                    f"sys.path.insert(0, {str(SRC_DIR)!r}); "
+                    "from vn_rsi.veteran import train_veteran_two_stage_qlora_dpo; "
+                    "res = train_veteran_two_stage_qlora_dpo("
+                    f"sft_path={str(ds_rep.sft_path)!r}, "
+                    f"dpo_path={str(ds_rep.dpo_path)!r}, "
+                    f"output_dir={str(dpo_out_dir)!r}, "
+                    f"model_id={args.slm_model!r}, "
+                    f"sft_epochs={int(eff_sft_epochs)}, "
+                    f"dpo_epochs={int(args.dpo_epochs)}, "
+                    "device_index=0, "
+                    f"strict_gpu={bool(args.strict_slm)}); "
+                    f"Path({str(result_json_path)!r}).write_text(json.dumps(res, indent=2), encoding='utf-8')"
+                )
+                worker_env = {**os.environ, "CUDA_VISIBLE_DEVICES": str(slm_gpu_idx), "PYTHONUNBUFFERED": "1"}
+                subprocess.run([sys.executable, "-c", worker_code], env=worker_env, check=True)
+                dpo_res = json.loads(result_json_path.read_text(encoding="utf-8"))
+            else:
+                dpo_res = train_veteran_two_stage_qlora_dpo(
+                    sft_path=ds_rep.sft_path,
+                    dpo_path=ds_rep.dpo_path,
+                    output_dir=dpo_out_dir,
+                    model_id=args.slm_model,
+                    sft_epochs=eff_sft_epochs,
+                    dpo_epochs=args.dpo_epochs,
+                    device_index=slm_gpu_idx,
+                    strict_gpu=args.strict_slm,
+                )
             report["veteran_qlora_dpo"] = dpo_res
             if dpo_res.get("status") == "trained_sft_plus_dpo":
                 resume_state["stage4_dpo_done"] = True

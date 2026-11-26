@@ -377,7 +377,12 @@ def train_veteran_two_stage_qlora_dpo(
             has_bnb = False
 
         gpu_idx = min(max(0, int(device_index)), max(0, torch.cuda.device_count() - 1))
-        use_bf16 = bool(hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
+        try:
+            major, _ = torch.cuda.get_device_capability(gpu_idx)
+        except Exception:
+            major = 7
+        # Only enable BF16 on Ampere+ (SM >= 8.0); Tesla T4 (SM 7.5) uses native FP16 Tensor Cores!
+        use_bf16 = bool(major >= 8 and hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
         dtype = torch.bfloat16 if use_bf16 else torch.float16
 
         tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
@@ -408,14 +413,13 @@ def train_veteran_two_stage_qlora_dpo(
         model.config.use_cache = False
 
         if has_bnb or already_quantized:
-            prep_kwargs = _filter_supported_kwargs(
-                prepare_model_for_kbit_training,
-                {
-                    "use_gradient_checkpointing": True,
-                    "gradient_checkpointing_kwargs": {"use_reentrant": False},
-                },
-            )
-            model = prepare_model_for_kbit_training(model, **prep_kwargs)
+            prep_sig = inspect.signature(prepare_model_for_kbit_training).parameters
+            prep_raw: dict[str, Any] = {"use_gradient_checkpointing": True}
+            if "activation_checkpointing_kwargs" in prep_sig:
+                prep_raw["activation_checkpointing_kwargs"] = {"use_reentrant": False}
+            elif "gradient_checkpointing_kwargs" in prep_sig:
+                prep_raw["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
+            model = prepare_model_for_kbit_training(model, **_filter_supported_kwargs(prepare_model_for_kbit_training, prep_raw))
         elif hasattr(model, "gradient_checkpointing_enable"):
             model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
@@ -432,6 +436,9 @@ def train_veteran_two_stage_qlora_dpo(
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora)
+        # Prevent `transformers.Trainer` from attempting unsupported `nn.DataParallel` on multi-GPU hosts (e.g. Kaggle T4 x2)
+        model.is_parallelizable = True
+        model.model_parallel = True
 
         optim_name = "paged_adamw_8bit" if has_bnb else "adamw_torch"
 
@@ -453,17 +460,24 @@ def train_veteran_two_stage_qlora_dpo(
             "bf16": use_bf16,
             "optim": optim_name,
             "logging_steps": 5,
-            "gradient_checkpointing": True,
-            "gradient_checkpointing_kwargs": {"use_reentrant": False},
             "save_strategy": "no",
             "report_to": "none",
         }
+        if "activation_checkpointing" in sft_sig_params:
+            sft_cfg_raw["activation_checkpointing"] = True
+            sft_cfg_raw["activation_checkpointing_kwargs"] = {"use_reentrant": False}
+        else:
+            sft_cfg_raw["gradient_checkpointing"] = True
+            sft_cfg_raw["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
         if "max_seq_length" in sft_sig_params:
             sft_cfg_raw["max_seq_length"] = max_seq_len
         else:
             sft_cfg_raw["max_length"] = max_seq_len
 
         sft_args = SFTConfig(**_filter_supported_kwargs(SFTConfig.__init__, sft_cfg_raw))
+        # Force single-GPU execution inside SFTTrainer even when Kaggle T4 x2 exposes 2 GPUs
+        if getattr(sft_args, "n_gpu", 1) > 1:
+            sft_args._n_gpu = 1
         sft_trainer_params = inspect.signature(SFTTrainer.__init__).parameters
         sft_trainer_raw: dict[str, Any] = {
             "model": model,
@@ -512,12 +526,18 @@ def train_veteran_two_stage_qlora_dpo(
             "bf16": use_bf16,
             "optim": optim_name,
             "logging_steps": 5,
-            "gradient_checkpointing": True,
-            "gradient_checkpointing_kwargs": {"use_reentrant": False},
             "save_strategy": "no",
             "report_to": "none",
         }
+        if "activation_checkpointing" in dpo_sig_params:
+            dpo_cfg_raw["activation_checkpointing"] = True
+            dpo_cfg_raw["activation_checkpointing_kwargs"] = {"use_reentrant": False}
+        else:
+            dpo_cfg_raw["gradient_checkpointing"] = True
+            dpo_cfg_raw["gradient_checkpointing_kwargs"] = {"use_reentrant": False}
         dpo_args = DPOConfig(**_filter_supported_kwargs(DPOConfig.__init__, dpo_cfg_raw))
+        if getattr(dpo_args, "n_gpu", 1) > 1:
+            dpo_args._n_gpu = 1
         dpo_trainer_params = inspect.signature(DPOTrainer.__init__).parameters
         dpo_trainer_raw: dict[str, Any] = {
             "model": model,

@@ -189,7 +189,13 @@ def amp_autocast_and_scaler(device: Any, enabled: bool, is_xla: bool = False) ->
     if dev_type != "cuda":
         return nullcontext(), None
 
-    use_bf16 = bool(hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
+    use_bf16 = False
+    if hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported():
+        try:
+            major, _ = torch.cuda.get_device_capability(device)
+            use_bf16 = bool(major >= 8)
+        except Exception:
+            use_bf16 = False
     dtype = torch.bfloat16 if use_bf16 else torch.float16
     ctx = torch.amp.autocast(device_type="cuda", dtype=dtype, enabled=True)
     if use_bf16:
@@ -221,7 +227,13 @@ def detect_cloud_compute() -> dict[str, Any]:
 
         has_torch = True
         if torch.cuda.is_available():
-            bf16_supported = bool(hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
+            try:
+                major0, _ = torch.cuda.get_device_capability(0)
+                bf16_supported = bool(
+                    major0 >= 8 and hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported()
+                )
+            except Exception:
+                bf16_supported = False
             for idx in range(torch.cuda.device_count()):
                 props = torch.cuda.get_device_properties(idx)
                 gpus.append(
