@@ -12,7 +12,7 @@
 [![LaTeX Paper](https://img.shields.io/badge/Paper-LaTeX%20Audited-F59E0B?style=for-the-badge&logo=latex&logoColor=white)](paper/main.tex)
 [![Research Only](https://img.shields.io/badge/Scope-Research%20Only%20%7C%20No%20Live%20Trading-DC2626?style=for-the-badge&logo=shield&logoColor=white)](#disclaimer)
 
-**Paper**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model (≤8B) Quantitative Research in Rule-Constrained Emerging Markets*  
+**Topic**: *MAVE-Q: Modular Autonomous Verified Evolution for Small-Model (≤8B) Quantitative Research in Rule-Constrained Emerging Markets*  
 **Author**: **Tran Duy Khang** — *AI Software Engineer / Freelance Vibe Researcher* ([@KenyaWashed](https://github.com/KenyaWashed))  
 **Language**: [English](#english-version) | [Tiếng Việt](#phiên-bản-tiếng-việt)
 
