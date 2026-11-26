@@ -396,18 +396,16 @@ def train_veteran_two_stage_qlora_dpo(
         model_kwargs: dict[str, Any] = {
             "device_map": {"": gpu_idx},
             "trust_remote_code": True,
+            # Explicitly override model config's default bfloat16 (e.g. Qwen3) on FP16-only GPUs like Tesla T4!
+            "torch_dtype": dtype,
         }
-        if already_quantized:
-            model_kwargs["torch_dtype"] = dtype
-        elif has_bnb:
+        if not already_quantized and has_bnb:
             model_kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_compute_dtype=dtype,
             )
-        else:
-            model_kwargs["torch_dtype"] = dtype
 
         model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
         model.config.use_cache = False
@@ -436,6 +434,13 @@ def train_veteran_two_stage_qlora_dpo(
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora)
+        # Ensure all trainable LoRA master weights are FP32 and no stray BF16 tensors remain on T4 (SM 7.5),
+        # preventing PyTorch GradScaler `_amp_foreach_non_finite_check_and_unscale_cuda` BFloat16 crashes.
+        for param in model.parameters():
+            if param.requires_grad:
+                param.data = param.data.to(torch.float32)
+            elif not use_bf16 and param.dtype == torch.bfloat16:
+                param.data = param.data.to(dtype)
         # Prevent `transformers.Trainer` from attempting unsupported `nn.DataParallel` on multi-GPU hosts (e.g. Kaggle T4 x2)
         model.is_parallelizable = True
         model.model_parallel = True
