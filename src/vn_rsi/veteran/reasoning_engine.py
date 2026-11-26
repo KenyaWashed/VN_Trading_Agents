@@ -168,19 +168,24 @@ class VeteranReasoningEngine:
             tok_src = str(self.adapter_dir) if (self.adapter_dir / "tokenizer_config.json").exists() else self.base_model_id
             tok = AutoTokenizer.from_pretrained(tok_src, trust_remote_code=True)
             if torch.cuda.is_available():
-                load_kwargs: dict[str, Any] = {"device_map": "auto", "trust_remote_code": True}
+                try:
+                    major, _ = torch.cuda.get_device_capability(0)
+                except Exception:
+                    major = 7
+                use_bf16 = bool(major >= 8 and hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
+                dtype = torch.bfloat16 if use_bf16 else torch.float16
+                load_kwargs: dict[str, Any] = {"device_map": {"": 0}, "trust_remote_code": True}
                 try:
                     from transformers import BitsAndBytesConfig  # type: ignore[import-not-found]
 
-                    use_bf16 = bool(hasattr(torch.cuda, "is_bf16_supported") and torch.cuda.is_bf16_supported())
                     load_kwargs["quantization_config"] = BitsAndBytesConfig(
                         load_in_4bit=True,
                         bnb_4bit_quant_type="nf4",
                         bnb_4bit_use_double_quant=True,
-                        bnb_4bit_compute_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+                        bnb_4bit_compute_dtype=dtype,
                     )
                 except Exception:
-                    load_kwargs["torch_dtype"] = torch.float16
+                    load_kwargs["torch_dtype"] = dtype
                 base = AutoModelForCausalLM.from_pretrained(self.base_model_id, **load_kwargs)
             else:
                 base = AutoModelForCausalLM.from_pretrained(
