@@ -62,7 +62,7 @@ VN_Trading_Agents/
 └── scripts/ci_check.py       # Full gate: ruff + mypy + pytest + paper audit
 ```
 
-### Quickstart & Free Cloud Training ($0)
+### Quickstart & Free Cloud Training
 
 ```bash
 # 1. Install & run full verification gate (ruff + mypy + 44 tests + paper audit)
