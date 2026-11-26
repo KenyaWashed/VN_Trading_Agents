@@ -1,12 +1,12 @@
 # Data snapshots and raw caches (never redistribute raw market data)
-data/
-!data/.gitkeep
+/data/
+!/data/.gitkeep
 
 # Experiment artifacts & logs (tracked locally per run, reproducible via configs)
-artifacts/
-logs/
-mlruns/
-wandb/
+/artifacts/
+/logs/
+/mlruns/
+/wandb/
 
 # Python / build / virtualenvs
 __pycache__/
@@ -27,5 +27,5 @@ build/
 *.blg
 
 # Local autonomous task queue & scratch state
-tasks.txt
-AUTONOMOUS_STATE.md
+tasks*.txt
+AUTONOMOUS_STATE*.md
