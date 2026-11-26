@@ -393,11 +393,15 @@ def train_veteran_two_stage_qlora_dpo(
         hf_cfg = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
         already_quantized = getattr(hf_cfg, "quantization_config", None) is not None
 
+        import transformers as _tf  # type: ignore[import-not-found]
+
+        tf_major = int(str(getattr(_tf, "__version__", "4")).split(".")[0])
+        dtype_kwarg_name = "dtype" if tf_major >= 5 else "torch_dtype"
         model_kwargs: dict[str, Any] = {
             "device_map": {"": gpu_idx},
             "trust_remote_code": True,
             # Explicitly override model config's default bfloat16 (e.g. Qwen3) on FP16-only GPUs like Tesla T4!
-            "torch_dtype": dtype,
+            dtype_kwarg_name: dtype,
         }
         if not already_quantized and has_bnb:
             model_kwargs["quantization_config"] = BitsAndBytesConfig(
@@ -434,18 +438,25 @@ def train_veteran_two_stage_qlora_dpo(
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora)
-        # Ensure all trainable LoRA master weights are FP32 and no stray BF16 tensors remain on T4 (SM 7.5),
-        # preventing PyTorch GradScaler `_amp_foreach_non_finite_check_and_unscale_cuda` BFloat16 crashes.
+        # Ensure all trainable LoRA master weights are FP32 and no stray BF16 params/buffers remain on T4 (SM 7.5).
         for param in model.parameters():
             if param.requires_grad:
                 param.data = param.data.to(torch.float32)
             elif not use_bf16 and param.dtype == torch.bfloat16:
                 param.data = param.data.to(dtype)
+        if not use_bf16:
+            for buf in model.buffers():
+                if buf.dtype == torch.bfloat16:
+                    buf.data = buf.data.to(dtype)
         # Prevent `transformers.Trainer` from attempting unsupported `nn.DataParallel` on multi-GPU hosts (e.g. Kaggle T4 x2)
         model.is_parallelizable = True
         model.model_parallel = True
 
         optim_name = "paged_adamw_8bit" if has_bnb else "adamw_torch"
+        # Note: On Tesla T4 (SM 7.5), 4-bit NF4 `bnb_4bit_compute_dtype=float16` already runs FP16 compute;
+        # keeping Trainer `fp16=False, bf16=False` avoids PyTorch GradScaler crashes on mixed BF16/FP32 LoRA grads!
+        trainer_fp16 = False
+        trainer_bf16 = use_bf16
 
         # Stage 1: SFT with native chat template formatting & cross-version SFTConfig/SFTTrainer kwargs
         sft_dir = out_p / "stage1_sft"
@@ -461,8 +472,8 @@ def train_veteran_two_stage_qlora_dpo(
             "gradient_accumulation_steps": 4,
             "num_train_epochs": sft_epochs,
             "learning_rate": 2e-4,
-            "fp16": not use_bf16,
-            "bf16": use_bf16,
+            "fp16": trainer_fp16,
+            "bf16": trainer_bf16,
             "optim": optim_name,
             "logging_steps": 5,
             "save_strategy": "no",
@@ -527,8 +538,8 @@ def train_veteran_two_stage_qlora_dpo(
             "gradient_accumulation_steps": 4,
             "num_train_epochs": dpo_epochs,
             "learning_rate": 5e-5,
-            "fp16": not use_bf16,
-            "bf16": use_bf16,
+            "fp16": trainer_fp16,
+            "bf16": trainer_bf16,
             "optim": optim_name,
             "logging_steps": 5,
             "save_strategy": "no",
