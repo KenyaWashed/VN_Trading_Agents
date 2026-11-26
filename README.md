@@ -11,8 +11,8 @@
 [![LaTeX Paper](https://img.shields.io/badge/Paper-337%2F337%20Cells%20Audited-F59E0B?style=for-the-badge&logo=latex&logoColor=white)](paper/main.tex)
 [![Research Only](https://img.shields.io/badge/Scope-Research%20Only%20%7C%20No%20Live%20Trading-DC2626?style=for-the-badge&logo=shield&logoColor=white)](#disclaimer)
 
-**Paper**: *MAVE-Q v4 (VetQuant-RSI): Veteran-Grounded Neuro-Symbolic Quantitative Research with Zero-Validation-Burn Evolution under Emerging-Market Microstructure Constraints*  
-**Author**: **Tran Duy Khang** — *AI Software Engineer / Independent Quantitative AI Researcher* ([@KenyaWashed](https://github.com/KenyaWashed))  
+**Topic**: *MAVE-Q v4 (VetQuant-RSI): Veteran-Grounded Neuro-Symbolic Quantitative Research with Zero-Validation-Burn Evolution under Emerging-Market Microstructure Constraints*  
+**Author**: **Tran Duy Khang** — *AI Software Engineer* ([@KenyaWashed](https://github.com/KenyaWashed))  
 **Guides**: [Free Cloud Training Guide](FREE_CLOUD_TRAINING_GUIDE.md) | [Final Upgrade Report](FINAL_UPGRADE_REPORT.md) | [Peer-Review Audit](paper/PEER_REVIEW_AUDIT.md)  
 **Language**: [English](#english-version) | [Tiếng Việt](#phiên-bản-tiếng-việt)
 
