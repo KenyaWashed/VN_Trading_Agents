@@ -30,3 +30,18 @@ build/
 # Local autonomous task queue & scratch state
 tasks*.txt
 AUTONOMOUS_STATE*.md
+
+# Ignore all Markdown documentation except the root README.md
+*.md
+!/README.md
+
+# Ignore LaTeX / PDF / generated report files on GitHub (kept locally)
+*.tex
+*.bib
+paper/main.pdf
+paper/tables/
+paper/figures/
+paper/generated_provenance.json
+
+# IDE settings
+.vscode/
