@@ -81,17 +81,18 @@ vol = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
     volumes={"/artifacts": vol},
 )
 def train_remote(
-    preset: str = "cloud_a100_350m",
-    mode: str = "holo_v3",
-    slm_model: str = "Qwen/Qwen3-8B",
+    preset: str = "sub1b_flagship_900m",
+    mode: str = "maveq_v5",
+    slm_family: str = "gemma3_1b",
+    slm_model: str = "",
     enable_slm_qlora: bool = False,
-    epochs: int = 16,
-    rounds: int = 7,
+    epochs: int = 12,
+    rounds: int = 5,
     seed: int = 2026,
     run_combat_arena: bool = False,
     score_sealed: bool = False,
 ) -> dict[str, str]:
-    """Run Holo-MAVE-Q large-scale training on Modal A100-80GB and persist checkpoints to Modal Volume."""
+    """Run MAVE-Q v5 (<1B/module) or legacy training on Modal A100-80GB and persist checkpoints to Modal Volume."""
     cmd = [
         sys.executable,
         "/workspace/train_colab_kaggle.py",
@@ -99,8 +100,8 @@ def train_remote(
         preset,
         "--mode",
         mode,
-        "--slm-model",
-        slm_model,
+        "--slm-family",
+        slm_family,
         "--epochs",
         str(epochs),
         "--rounds",
@@ -110,6 +111,8 @@ def train_remote(
         "--checkpoint-dir",
         "/artifacts/checkpoints",
     ]
+    if slm_model:
+        cmd.extend(["--slm-model", slm_model])
     if enable_slm_qlora:
         cmd.append("--enable-slm-qlora")
     if score_sealed:
@@ -143,12 +146,13 @@ def train_remote(
 
 @app.local_entrypoint()
 def main(
-    preset: str = "cloud_a100_350m",
-    mode: str = "holo_v3",
-    slm_model: str = "Qwen/Qwen3-8B",
+    preset: str = "sub1b_flagship_900m",
+    mode: str = "maveq_v5",
+    slm_family: str = "gemma3_1b",
+    slm_model: str = "",
     enable_slm_qlora: bool = False,
-    epochs: int = 16,
-    rounds: int = 7,
+    epochs: int = 12,
+    rounds: int = 5,
     seed: int = 2026,
     run_combat_arena: bool = False,
     score_sealed: bool = False,
@@ -156,6 +160,7 @@ def main(
     res = train_remote.remote(
         preset=preset,
         mode=mode,
+        slm_family=slm_family,
         slm_model=slm_model,
         enable_slm_qlora=enable_slm_qlora,
         epochs=epochs,

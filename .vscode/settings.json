@@ -1,0 +1,24 @@
+{
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "Tectonic (Build PDF)",
+      "tools": ["tectonic"]
+    }
+  ],
+  "latex-workshop.latex.tools": [
+    {
+      "name": "tectonic",
+      "command": "C:/Users/DELL/.local/bin/tectonic.exe",
+      "args": [
+        "-X",
+        "compile",
+        "%DOCFILE%.tex",
+        "--synctex",
+        "--keep-logs"
+      ],
+      "env": {}
+    }
+  ],
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.latex.autoBuild.run": "onSave"
+}

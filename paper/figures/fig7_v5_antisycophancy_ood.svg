@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="430" viewBox="0 0 880.0 430.0" font-family="Helvetica, Arial, sans-serif">
+<rect x="0" y="0" width="880.0" height="430.0" fill="#FFFFFF"/>
+<text x="440.00" y="24.00" font-size="12.2" fill="#0F172A" text-anchor="middle" font-weight="bold">Figure 7: (Left) 45-Scenario Anti-Sycophancy Veteran Eval | (Right) 3-Market Zero-Retuning OOD Sharpe</text>
+<rect x="56.00" y="58.00" width="374.00" height="287.00" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.90"/>
+<text x="243.00" y="48.00" font-size="9.3" fill="#0F172A" text-anchor="middle" font-weight="bold">45 Scenarios / 22 Adversarial Traps (0-100%)</text>
+<line x1="56.00" y1="345.00" x2="430.00" y2="345.00" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="51.00" y="348.00" font-size="8.0" fill="#334155" text-anchor="end" font-weight="normal">0%</text>
+<line x1="56.00" y1="287.60" x2="430.00" y2="287.60" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="51.00" y="290.60" font-size="8.0" fill="#334155" text-anchor="end" font-weight="normal">20%</text>
+<line x1="56.00" y1="230.20" x2="430.00" y2="230.20" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="51.00" y="233.20" font-size="8.0" fill="#334155" text-anchor="end" font-weight="normal">40%</text>
+<line x1="56.00" y1="172.80" x2="430.00" y2="172.80" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="51.00" y="175.80" font-size="8.0" fill="#334155" text-anchor="end" font-weight="normal">60%</text>
+<line x1="56.00" y1="115.40" x2="430.00" y2="115.40" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="51.00" y="118.40" font-size="8.0" fill="#334155" text-anchor="end" font-weight="normal">80%</text>
+<line x1="56.00" y1="58.00" x2="430.00" y2="58.00" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="51.00" y="61.00" font-size="8.0" fill="#334155" text-anchor="end" font-weight="normal">100%</text>
+<text x="102.75" y="359.00" font-size="8.3" fill="#0F172A" text-anchor="middle" font-weight="bold">Acc%</text>
+<rect x="63.48" y="58.00" width="17.77" height="287.00" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="83.25" y="147.29" width="17.77" height="197.71" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="103.01" y="211.06" width="17.77" height="133.94" fill="#F59E0B" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="122.78" y="255.71" width="17.77" height="89.29" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<text x="196.25" y="359.00" font-size="8.3" fill="#0F172A" text-anchor="middle" font-weight="bold">SycRes%</text>
+<rect x="156.98" y="58.00" width="17.77" height="287.00" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="176.75" y="344.00" width="17.77" height="1.00" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="196.51" y="344.00" width="17.77" height="1.00" fill="#F59E0B" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="216.27" y="344.00" width="17.77" height="1.00" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<text x="289.75" y="359.00" font-size="8.3" fill="#0F172A" text-anchor="middle" font-weight="bold">100-FDR%</text>
+<rect x="250.48" y="58.00" width="17.77" height="287.00" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="270.25" y="218.72" width="17.77" height="126.28" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="290.01" y="254.80" width="17.77" height="90.20" fill="#F59E0B" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="309.77" y="269.83" width="17.77" height="75.17" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<text x="383.25" y="359.00" font-size="8.3" fill="#0F172A" text-anchor="middle" font-weight="bold">RiskF1%</text>
+<rect x="343.98" y="110.72" width="17.77" height="234.28" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="363.75" y="292.82" width="17.77" height="52.18" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="383.51" y="344.00" width="17.77" height="1.00" fill="#F59E0B" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="403.28" y="344.00" width="17.77" height="1.00" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="56.00" y="392.00" width="10.00" height="10.00" fill="#0F766E"/>
+<text x="70.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">v5 Vet</text>
+<rect x="148.00" y="392.00" width="10.00" height="10.00" fill="#2563EB"/>
+<text x="162.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">Generic</text>
+<rect x="240.00" y="392.00" width="10.00" height="10.00" fill="#F59E0B"/>
+<text x="254.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">FOMO</text>
+<rect x="332.00" y="392.00" width="10.00" height="10.00" fill="#DC2626"/>
+<text x="346.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">YesMan</text>
+<rect x="486.00" y="58.00" width="370.00" height="287.00" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.90"/>
+<text x="671.00" y="48.00" font-size="9.3" fill="#0F172A" text-anchor="middle" font-weight="bold">Zero-Retuning 3-Market OOD Net Sharpe</text>
+<line x1="486.00" y1="324.50" x2="856.00" y2="324.50" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="481.00" y="327.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">-0.8</text>
+<line x1="486.00" y1="283.50" x2="856.00" y2="283.50" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="481.00" y="286.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">-0.4</text>
+<line x1="486.00" y1="242.50" x2="856.00" y2="242.50" stroke="#94A3B8" stroke-width="1.00"/>
+<text x="481.00" y="245.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">+0.0</text>
+<line x1="486.00" y1="201.50" x2="856.00" y2="201.50" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="481.00" y="204.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">+0.4</text>
+<line x1="486.00" y1="160.50" x2="856.00" y2="160.50" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="481.00" y="163.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">+0.8</text>
+<line x1="486.00" y1="119.50" x2="856.00" y2="119.50" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="481.00" y="122.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">+1.2</text>
+<line x1="486.00" y1="78.50" x2="856.00" y2="78.50" stroke="#E2E8F0" stroke-width="0.70" stroke-dasharray="4,3"/>
+<text x="481.00" y="81.50" font-size="7.8" fill="#334155" text-anchor="end" font-weight="normal">+1.6</text>
+<text x="547.67" y="359.00" font-size="8.5" fill="#0F172A" text-anchor="middle" font-weight="bold">VN100-10d</text>
+<rect x="498.33" y="82.21" width="22.20" height="160.29" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="523.03" y="81.83" width="22.20" height="160.67" fill="#D97706" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="547.73" y="86.70" width="22.20" height="155.80" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="572.43" y="190.68" width="22.20" height="51.82" fill="#64748B" stroke="#1E293B" stroke-width="0.40"/>
+<text x="671.00" y="359.00" font-size="8.5" fill="#0F172A" text-anchor="middle" font-weight="bold">US T+1</text>
+<rect x="621.67" y="219.39" width="22.20" height="23.11" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="646.37" y="212.36" width="22.20" height="30.14" fill="#D97706" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="671.07" y="226.85" width="22.20" height="15.65" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="695.77" y="242.50" width="22.20" height="79.95" fill="#64748B" stroke="#1E293B" stroke-width="0.40"/>
+<text x="794.33" y="359.00" font-size="8.5" fill="#0F172A" text-anchor="middle" font-weight="bold">CSI T+1</text>
+<rect x="745.00" y="220.85" width="22.20" height="21.65" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="769.70" y="242.50" width="22.20" height="12.02" fill="#D97706" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="794.40" y="242.50" width="22.20" height="3.32" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="819.10" y="242.50" width="22.20" height="86.26" fill="#64748B" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="486.00" y="392.00" width="10.00" height="10.00" fill="#0F766E"/>
+<text x="500.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">MAVE-Q v5</text>
+<rect x="578.00" y="392.00" width="10.00" height="10.00" fill="#D97706"/>
+<text x="592.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">MAVE-Q v4</text>
+<rect x="670.00" y="392.00" width="10.00" height="10.00" fill="#2563EB"/>
+<text x="684.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">RD-Agent</text>
+<rect x="762.00" y="392.00" width="10.00" height="10.00" fill="#64748B"/>
+<text x="776.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">Buy&amp;Hold</text>
+</svg>

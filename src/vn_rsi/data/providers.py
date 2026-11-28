@@ -147,7 +147,7 @@ class SyntheticVNMarketProvider(DataProvider):
         fund_rows: list[dict[str, Any]] = []
         pit_quality_map: dict[str, pd.Series] = {}
 
-        for s_idx, (sym, ex, sector, is_bank) in enumerate(specs):
+        for _s_idx, (sym, _ex, _sector, is_bank) in enumerate(specs):
             base_roe = rng.uniform(0.07, 0.24)
             base_pb = rng.uniform(0.9, 3.4)
             sym_fund_records = []

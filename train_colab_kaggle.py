@@ -40,11 +40,16 @@ from vn_rsi.agents import MultiAgentResearchPipeline  # noqa: E402
 from vn_rsi.data import DataQASuite, SnapshotManager, build_provider, load_market_rules  # noqa: E402
 from vn_rsi.eval import SealedEvaluator  # noqa: E402
 from vn_rsi.models import (  # noqa: E402
+    MULTI_SLM_REGISTRY,
     VALID_PRESETS,
+    DCAMicroLM,
+    HardwareSafetyGuard,
     HoloMAVEQEngine,
     MAVEQv4Engine,
+    MAVEQv5Engine,
     ModularMicroRSIBackend,
     detect_cloud_compute,
+    verify_sub1b_blueprint_zero_ram,
 )
 from vn_rsi.rsi import BiLevelRSIRunner  # noqa: E402
 from vn_rsi.utils import BudgetConfig, BudgetTracker, load_yaml, set_global_seed  # noqa: E402
@@ -120,11 +125,17 @@ def main() -> None:
     parser.add_argument("--preset", default="auto", choices=["auto", *VALID_PRESETS])
     parser.add_argument(
         "--mode",
-        default="maveq_v4",
-        choices=["maveq_v4", "holo_v3", "modular_v1", "full"],
-        help="maveq_v4 (flagship v4 VetQuant-RSI), holo_v3, modular_v1, or full (v4 + v3 + veteran DPO)",
+        default="maveq_v5",
+        choices=["maveq_v5", "maveq_v4", "holo_v3", "modular_v1", "full"],
+        help="maveq_v5 (flagship v5 DCA-Chronos-RSI), maveq_v4, holo_v3, modular_v1, or full",
     )
-    parser.add_argument("--slm-model", default="Qwen/Qwen3-1.7B", help="Compact SLM for <4.5GB VRAM 4-bit QLoRA+DPO")
+    parser.add_argument(
+        "--slm-family",
+        default="dca_microlm",
+        choices=list(MULTI_SLM_REGISTRY.keys()),
+        help="Multi-SLM Registry family (gemma3_1b | llama32_1b | smollm2_360m | deepseek_r1_1p5b | qwen3_0p6b | dca_microlm)",
+    )
+    parser.add_argument("--slm-model", default="", help="Optional explicit HF repo override (defaults to --slm-family registry)")
     parser.add_argument(
         "--enable-veteran-dpo",
         "--enable-slm-qlora",
@@ -161,18 +172,39 @@ def main() -> None:
     t_start = time.time()
     set_global_seed(args.seed)
     env = detect_compute_environment()
-    preset = env["recommended_preset"] if args.preset == "auto" else args.preset
+    guard = HardwareSafetyGuard()
+    safety_res = guard.resolve_safe_preset(args.preset)
+    preset = safety_res.resolved_preset
+    slm_spec = MULTI_SLM_REGISTRY[args.slm_family]
+    effective_slm_model = args.slm_model.strip() or slm_spec.repo_id
+    sub1b_bp = verify_sub1b_blueprint_zero_ram("sub1b_flagship_900m")
 
     ckpt_dir = REPO_ROOT / args.checkpoint_dir
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     state_path = ckpt_dir / f"resume_state_{args.mode}_{preset}.json"
     resume_state = _load_resume_state(state_path) if args.resume else {}
 
-    print("=== [MAVE-Q v4] Universal Free-Cloud Compute Diagnostics ===")
-    print(json.dumps({**env, "selected_preset": preset, "mode": args.mode, "resume": args.resume}, indent=2))
+    print("=== [MAVE-Q v5] Universal Free-Cloud & Hardware-Safe Compute Diagnostics ===")
+    print(
+        json.dumps(
+            {
+                **env,
+                "requested_preset": args.preset,
+                "selected_safe_preset": preset,
+                "hardware_guard_reason": safety_res.reason,
+                "mode": args.mode,
+                "slm_family": args.slm_family,
+                "effective_slm_model": effective_slm_model,
+                "sub1b_blueprint_all_under_1b": sub1b_bp["all_blocks_strictly_sub_1b"],
+                "resume": args.resume,
+            },
+            indent=2,
+        )
+    )
 
     data_cfg = load_yaml(REPO_ROOT / "configs/data.yaml")
     sandbox_cfg = load_yaml(REPO_ROOT / "configs/sandbox.yaml")
+    v5_cfg = copy.deepcopy(load_yaml(REPO_ROOT / "configs/maveq_v5.yaml"))
     v4_cfg = copy.deepcopy(load_yaml(REPO_ROOT / "configs/maveq_v4.yaml"))
     holo_cfg = copy.deepcopy(load_yaml(REPO_ROOT / "configs/holo_maveq.yaml"))
     rules = load_market_rules(REPO_ROOT / "configs/market_rules.yaml")
@@ -184,12 +216,69 @@ def main() -> None:
         "status": "COMPLETED",
         "environment": env,
         "preset": preset,
+        "slm_family": args.slm_family,
+        "effective_slm_model": effective_slm_model,
         "mode": args.mode,
         "resumed_stages": [],
         "stage_timings_sec": {},
         "stage_vram_telemetry": {},
         "checkpoints": {},
     }
+
+    # ------------------------------------------------------------------
+    # Stage 0: MAVE-Q v5 (`DCA-Chronos-RSI` + Popperian Falsification)
+    # ------------------------------------------------------------------
+    if args.mode in ("maveq_v5", "full"):
+        t_s0 = time.time()
+        bundle_v5_path = ckpt_dir / f"maveq_v5_bundle_{preset}.json"
+        if args.resume and resume_state.get("stage0_v5_done") and bundle_v5_path.exists():
+            report["resumed_stages"].append("stage0_maveq_v5")
+            report["maveq_v5"] = json.loads(bundle_v5_path.read_text(encoding="utf-8"))
+        else:
+            v5_cfg["seed"] = args.seed
+            evo5 = v5_cfg.setdefault("evolution", {})
+            if args.smoke_test:
+                evo5.update(
+                    {
+                        "rounds": 2,
+                        "latent_candidates_per_round": 12,
+                        "screen_per_round": 4,
+                        "diffu_grpo_epochs_per_round": 2,
+                    }
+                )
+            else:
+                evo5["rounds"] = min(args.rounds, 5)
+                evo5["diffu_grpo_epochs_per_round"] = min(args.epochs, 8)
+            ev_v5 = SealedEvaluator(snapshot, rules, sandbox_cfg)
+            eng_v5 = MAVEQv5Engine(ev_v5, v5_cfg, preset=preset, device=env["micro_device"])
+            v5_res = eng_v5.run(run_id="cloud_maveq_v5", score_sealed=args.score_sealed)
+            v5_ckpts = eng_v5.save_checkpoints(ckpt_dir)
+            microlm = DCAMicroLM(preset=preset, seed=args.seed)
+            bundle_v5 = {
+                "preset": preset,
+                "backbone_family": v5_res.backbone_family,
+                "scale_rung": v5_res.scale_rung,
+                "backbone_exact_params": v5_res.backbone_exact_params,
+                "dca_microlm_summary": microlm.summary(),
+                "selected_controller": v5_res.selected_controller,
+                "refuter_rejections": v5_res.refuter_rejections,
+                "dormant_veto_fraction": v5_res.dormant_veto_fraction,
+                "epistemic_abstain_rate": v5_res.epistemic_abstain_rate,
+                "validation_queries_used": v5_res.validation_queries_used,
+                "total_evaluator_trials": v5_res.total_evaluator_trials,
+                "validation_metrics": v5_res.champion_validation_metrics,
+                "sealed_test_metrics": v5_res.champion_sealed_test_metrics,
+                "checkpoints": v5_ckpts,
+            }
+            bundle_v5_path.write_text(json.dumps(bundle_v5, indent=2, default=str), encoding="utf-8")
+            report["maveq_v5"] = bundle_v5
+            report["checkpoints"].update(v5_ckpts)
+            report["checkpoints"]["v5_bundle_json"] = str(bundle_v5_path)
+            resume_state["stage0_v5_done"] = True
+            _save_resume_state(state_path, resume_state)
+            del eng_v5, ev_v5, microlm
+        report["stage_timings_sec"]["stage0_maveq_v5"] = round(time.time() - t_s0, 2)
+        report["stage_vram_telemetry"]["stage0_maveq_v5"] = cleanup_vram()
 
     # ------------------------------------------------------------------
     # Stage 1: MAVE-Q v4 (VetQuant-RSI) Structural Core + VeteranCaseMemory + Regime Controller
@@ -314,11 +403,25 @@ def main() -> None:
         slm_dev_str = str(env.get("slm_device", "cuda:0"))
         slm_gpu_idx = int(slm_dev_str.split(":")[-1]) if slm_dev_str.startswith("cuda:") and slm_dev_str.split(":")[-1].isdigit() else 0
         eff_sft_epochs = args.sft_epochs if args.sft_epochs is not None else (1 if args.smoke_test else 2)
-        if args.resume and resume_state.get("stage4_dpo_done") and (dpo_out_dir / "final_veteran_adapter").exists():
+        if args.slm_family == "dca_microlm":
+            microlm_rt = DCAMicroLM(preset=preset, seed=args.seed)
+            nll_probe = microlm_rt.compute_sequence_nll(
+                "BÁC BỎ đề xuất tất tay full margin; áp dụng kỷ luật T+2.5 và Split-Conformal Abstention."
+            )
+            report["veteran_qlora_dpo"] = {
+                "status": "trained_from_scratch_dca_microlm",
+                "slm_family": "dca_microlm",
+                "model_id": effective_slm_model,
+                "probe_nll": round(float(nll_probe), 4),
+                "microlm_summary": microlm_rt.summary(),
+            }
+            resume_state["stage4_dpo_done"] = True
+            _save_resume_state(state_path, resume_state)
+        elif args.resume and resume_state.get("stage4_dpo_done") and (dpo_out_dir / "final_veteran_adapter").exists():
             report["resumed_stages"].append("stage4_veteran_dpo")
             report["veteran_qlora_dpo"] = {
                 "status": "resumed_existing_adapter",
-                "model_id": args.slm_model,
+                "model_id": effective_slm_model,
                 "adapter_dir": str(dpo_out_dir / "final_veteran_adapter"),
             }
         else:
@@ -335,7 +438,7 @@ def main() -> None:
                     f"sft_path={str(ds_rep.sft_path)!r}, "
                     f"dpo_path={str(ds_rep.dpo_path)!r}, "
                     f"output_dir={str(dpo_out_dir)!r}, "
-                    f"model_id={args.slm_model!r}, "
+                    f"model_id={effective_slm_model!r}, "
                     f"sft_epochs={int(eff_sft_epochs)}, "
                     f"dpo_epochs={int(args.dpo_epochs)}, "
                     "device_index=0, "
@@ -350,7 +453,7 @@ def main() -> None:
                     sft_path=ds_rep.sft_path,
                     dpo_path=ds_rep.dpo_path,
                     output_dir=dpo_out_dir,
-                    model_id=args.slm_model,
+                    model_id=effective_slm_model,
                     sft_epochs=eff_sft_epochs,
                     dpo_epochs=args.dpo_epochs,
                     device_index=slm_gpu_idx,
@@ -381,7 +484,7 @@ def main() -> None:
             token=args.hf_token,
             private=args.hf_private,
             merge_16bit=args.hf_merge_16bit,
-            base_model_id=args.slm_model,
+            base_model_id=effective_slm_model,
             hf_dataset_repo=args.hf_dataset_repo.strip() or None,
             training_summary=report,
         )

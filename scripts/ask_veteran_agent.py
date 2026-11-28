@@ -45,6 +45,8 @@ def _build_context_from_snapshot(
     lang: str,
     data_cfg: dict[str, Any],
     sandbox_cfg: dict[str, Any],
+    proposed_formula: str = "",
+    claimed_edge_bps: float | None = None,
 ) -> MarketContextSnapshot:
     snap = SnapshotManager(REPO_ROOT / str(data_cfg.get("snapshot_root", "data/snapshots"))).load_snapshot(
         str(data_cfg["snapshot_id"])
@@ -118,17 +120,21 @@ def _build_context_from_snapshot(
         expected_mkt_5d=float(mem_sig["expected_mkt_5d"].iloc[-1]),
         nearest_analogs=analogs,
         user_question=question,
+        proposed_formula_expr=proposed_formula,
+        claimed_gross_edge_bps=claimed_edge_bps,
         language=lang,
     )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ask MAVE-Q v4 10-Year Veteran Agent (Natural-Language CIO Brief)")
+    parser = argparse.ArgumentParser(description="Ask MAVE-Q v5 Anti-Sycophancy 10-Year Veteran Agent")
     parser.add_argument("--symbol", default="FPT", help="Ticker symbol in snapshot (e.g. FPT, VCB, HPG, NVL_STRESS)")
     parser.add_argument("--as-of", default=None, help="Causal analysis date YYYY-MM-DD (defaults to validation end)")
     parser.add_argument("--question", default="Đánh giá cơ hội và rủi ro T+2.5 cho mã này?", help="Natural-language query")
+    parser.add_argument("--proposed-formula", default="", help="Optional alpha expression to audit for look-ahead / friction traps")
+    parser.add_argument("--claimed-edge-bps", type=float, default=None, help="Optional claimed gross edge in bps for 1.5x fee-mirage audit")
     parser.add_argument("--lang", default="vi", choices=["vi", "en"], help="Output language (vi | en)")
-    parser.add_argument("--checkpoint-dir", default="artifacts/checkpoints", help="Directory containing MAVE-Q v4 checkpoints")
+    parser.add_argument("--checkpoint-dir", default="artifacts/checkpoints", help="Directory containing MAVE-Q v5/v4 checkpoints")
     parser.add_argument("--slm-base-model", default=None, help="Optional HuggingFace base SLM ID if QLoRA/DPO adapter exists")
     parser.add_argument("--use-slm-gen", action="store_true", help="Also run open-source LoRA/DPO SLM generation when adapter exists")
     parser.add_argument("--json", action="store_true", help="Emit structured JSON instead of Markdown brief")
@@ -138,11 +144,13 @@ def main() -> None:
     sandbox_cfg = load_yaml(REPO_ROOT / "configs/sandbox.yaml")
     ckpt_dir = REPO_ROOT / args.checkpoint_dir
 
-    # Load optional saved champion bundle metadata for transparency
+    # Load optional saved champion bundle metadata for transparency (prefer v5, fallback v4)
     bundle_meta: dict[str, Any] = {}
-    for cand in sorted(ckpt_dir.glob("maveq_v4_bundle_*.json")):
-        bundle_meta = json.loads(cand.read_text(encoding="utf-8"))
-        break
+    for pat in ("maveq_v5_bundle_*.json", "maveq_v4_bundle_*.json"):
+        found = sorted(ckpt_dir.glob(pat))
+        if found:
+            bundle_meta = json.loads(found[0].read_text(encoding="utf-8"))
+            break
 
     adapter_dir = ckpt_dir / "veteran_slm_qlora_dpo" / "final_veteran_adapter"
     engine = VeteranReasoningEngine(
@@ -157,6 +165,8 @@ def main() -> None:
         lang=args.lang,
         data_cfg=data_cfg,
         sandbox_cfg=sandbox_cfg,
+        proposed_formula=args.proposed_formula,
+        claimed_edge_bps=args.claimed_edge_bps,
     )
     resp = engine.analyze(ctx)
 
@@ -164,14 +174,16 @@ def main() -> None:
         print(json.dumps({"question": args.question, "bundle_loaded": bool(bundle_meta), "analysis": resp.to_dict()}, indent=2, ensure_ascii=False))
         return
 
-    print(f"\n[MAVE-Q v4 VetQuant-RSI | Query]: {args.question}")
+    print(f"\n[MAVE-Q v5 Anti-Sycophancy Veteran | Query]: {args.question}")
+    if resp.premise_refuted:
+        print(f"[PREMISE REFUTED]: {resp.refuted_premise_types} -> {resp.refutation_rationale}")
     if bundle_meta:
         print(
-            f"[Loaded v4 Bundle]: preset={bundle_meta.get('preset')} | controller={bundle_meta.get('selected_controller')} | "
+            f"[Loaded Bundle]: preset={bundle_meta.get('preset')} | controller={bundle_meta.get('selected_controller')} | "
             f"val_sharpe={bundle_meta.get('validation_metrics', {}).get('net_sharpe', 'N/A')}"
         )
     print(resp.render_markdown())
-    print("Note: Academic research & simulation only — NOT investment advice.")
+    print("Note: Academic research topic & simulation only — NOT investment advice.")
 
 
 if __name__ == "__main__":

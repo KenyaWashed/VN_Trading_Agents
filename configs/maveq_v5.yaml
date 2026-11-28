@@ -1,0 +1,139 @@
+# MAVE-Q v5 (`DCA-Chronos-RSI` + Popperian Falsification) Configuration
+# Research Topic Technical Specification (Zero edits to locked sandbox/eval; Zero sealed_test access in dev!)
+#
+# Core Mechanisms:
+#   1. Google DeepCrossAttention (`DCA-QuantFormer`, Heddes et al. ICML 2025, arXiv:2502.06785) + 5-Family Backbone Zoo
+#   2. Multi-SLM Registry (6 Families: Gemma-3, Llama-3.2, SmolLM2, DeepSeek-R1, Qwen3, Custom DCA-MicroLM)
+#   3. Popperian Falsification (`AdversarialHypothesisRefuter`: 1.5x Friction Shock, Cross-Fold Sign, Occam BIC, Sign Flip)
+#   4. HardwareSafetyGuard (`local_safe_20m` <1.2GB RAM on laptop; auto-promotes to `sub1b_flagship_900m` <1B/block on Cloud)
+#   5. Chronos-Kalman-Hedge (exact H-day delay buffer + online pruning), DCA-MoSE HyperGate, Split-Conformal Veto, AsymBeta-NTZ
+
+model_name: "maveq_v5_dca_chronos_rsi"
+seed: 2026
+specialist_preset: "auto"            # auto -> local_safe_20m on <12GB RAM CPU; sub1b_flagship_900m on Kaggle 2xT4 / TPU / A100
+
+hardware_guard:
+  local_ram_threshold_gb: 12.0
+  local_max_peak_ram_mb: 1200.0
+  local_safe_preset: "local_safe_20m"
+  cloud_flagship_preset: "sub1b_flagship_900m"
+
+backbone_zoo:
+  active_family: "dca_quantformer"   # dca_quantformer | preln_transformer | mamba_ssm | hyena_conv | sparse_moe
+  scale_rung: "0.5m"                 # 0.5m | 5m | 12m | 20m | sub1b (selected via Popperian Occam-BIC gate in Task 04)
+  ridge_l2_frac: 0.22
+  gp_turnover_exp: 0.45
+
+multi_slm_registry:
+  default_slm: "dca_microlm"
+  families:
+    - "gemma3_1b"
+    - "llama32_1b"
+    - "smollm2_360m"
+    - "deepseek_r1_1p5b"
+    - "qwen3_0p6b"
+    - "dca_microlm"
+
+popperian_refuter:
+  enabled: true
+  friction_multiplier: 1.5
+  max_friction_drop_ratio: 0.40
+  occam_bic_lambda: 0.08
+  min_fold_ic_floor: -0.025
+  falsification_ledger: "logs/v5_falsified_hypotheses.jsonl"
+
+evolution:
+  rounds: 3
+  latent_candidates_per_round: 28
+  screen_per_round: 7
+  ucb_explore_fraction: 0.25
+  max_ensemble_factors: 5
+  max_member_corr: 0.65
+  diffu_grpo_epochs_per_round: 5
+  max_validation_queries: 1          # TRUE Zero-Validation-Burn (1 scalar validation query per frozen seed!)
+  mssf_windows: [1, 3, 5]
+  mssf_turnover_penalty: 0.16
+
+chronos_kalman_hedge:
+  enabled: false                     # PRUNED in Task 05 8-Seed Ruthless Pruning Audit (+0.074 SR when removed, p=0.968)
+  horizon_delay_days: 5              # STRICT causal delay buffer (retained in library for ablations & broad-universe Cloud pretraining)
+  process_noise_q: 0.00025
+  obs_noise_r: 0.032
+  hedge_eta: 2.0
+  hedge_discount_gamma: 0.965
+  turnover_penalty_lambda: 0.06
+  online_prune_skill_thresh: -0.020
+
+mose_hypergate:
+  enabled: false                     # PRUNED in Task 05 8-Seed Ruthless Pruning Audit (+0.058 SR when removed, p=0.996)
+  group_lasso_lambda: 0.018
+  max_nonlinear_weight: 0.12
+
+split_conformal_veto:
+  enabled: false                     # PRUNED in Task 05 8-Seed Ruthless Pruning Audit (+0.042 SR & -61% SD when removed, p=0.9385)
+  alpha_level: 0.10
+  calibration_fraction: 0.35
+  stock_veto_scale: 0.10
+  market_abstain_alpha: 0.04
+
+asym_beta_ntz:
+  enabled: true
+  cv_grid:
+    - name: "dca_chronos_asym_alpha"
+      bull_beta_unlock: -0.07        # Unlocks beta+ leader participation in confirmed Bull expansions!
+      normal_bab_tilt: 0.18
+      bear_beta_clamp: 0.50
+      ntz_hysteresis_bonus: 0.26     # Friction-matched No-Trade-Zone exceeding T+2.5 + 0.1% sell tax
+      fast_crash_dd60: -0.145
+      fast_crash_floor_3d: 0.052
+      slow_bear_r60: -0.25
+      slow_bear_breadth: 0.20
+      rebound_release_r5: 0.012
+      bull_r20_thresh: 0.020
+      bull_breadth_thresh: 0.55
+      bull_trend_tilt: 0.02
+      bear_defense_tilt: 0.06
+      backbone_prior_weight: 0.78
+      signal_ema_span: 1
+      markowitz_ratio_mode: false
+    - name: "dca_chronos_asym_balanced"
+      bull_beta_unlock: -0.06
+      normal_bab_tilt: 0.18
+      bear_beta_clamp: 0.52
+      ntz_hysteresis_bonus: 0.27
+      fast_crash_dd60: -0.150
+      fast_crash_floor_3d: 0.055
+      slow_bear_r60: -0.25
+      slow_bear_breadth: 0.20
+      rebound_release_r5: 0.012
+      bull_r20_thresh: 0.020
+      bull_breadth_thresh: 0.55
+      bull_trend_tilt: 0.02
+      bear_defense_tilt: 0.06
+      backbone_prior_weight: 0.78
+      signal_ema_span: 1
+      markowitz_ratio_mode: false
+    - name: "dca_chronos_asym_growth"
+      bull_beta_unlock: -0.08
+      normal_bab_tilt: 0.16
+      bear_beta_clamp: 0.48
+      ntz_hysteresis_bonus: 0.26
+      fast_crash_dd60: -0.150
+      fast_crash_floor_3d: 0.058
+      slow_bear_r60: -0.25
+      slow_bear_breadth: 0.20
+      rebound_release_r5: 0.012
+      bull_r20_thresh: 0.020
+      bull_breadth_thresh: 0.55
+      bull_trend_tilt: 0.02
+      bear_defense_tilt: 0.06
+      backbone_prior_weight: 0.80
+      signal_ema_span: 1
+      markowitz_ratio_mode: false
+
+ablations:
+  use_dca_backbone: true             # KEEP_VERIFIED: +0.0083 Rank IC (p=0.0000) vs PreLN Transformer
+  use_chronos_kalman_hedge: false    # PERMANENTLY PRUNED (Task 05 Ruthless Pruning Audit -> logged in v5_falsified_hypotheses.jsonl)
+  use_mose_hypergate: false          # PERMANENTLY PRUNED (Task 05 Ruthless Pruning Audit -> logged in v5_falsified_hypotheses.jsonl)
+  use_conformal_veto: false          # PERMANENTLY PRUNED (Task 05 Ruthless Pruning Audit -> logged in v5_falsified_hypotheses.jsonl)
+  use_asym_beta_ntz: true            # KEEP_VERIFIED: +0.2059 Sharpe & +1.09 Calmar (p=0.0000) vs Static Linear

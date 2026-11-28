@@ -57,24 +57,24 @@
 <text x="474.00" y="65.00" font-size="8.3" fill="#334155" text-anchor="end" font-weight="normal">1.0</text>
 <text x="526.75" y="369.00" font-size="8.8" fill="#0F172A" text-anchor="middle" font-weight="bold">Acc</text>
 <rect x="489.35" y="62.00" width="16.83" height="293.00" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="508.68" y="107.77" width="16.83" height="247.23" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="528.01" y="107.77" width="16.83" height="247.23" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="547.34" y="199.36" width="16.83" height="155.64" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="508.68" y="153.15" width="16.83" height="201.85" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="528.01" y="172.70" width="16.83" height="182.30" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="547.34" y="218.26" width="16.83" height="136.74" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
 <text x="620.25" y="369.00" font-size="8.8" fill="#0F172A" text-anchor="middle" font-weight="bold">Risk F1</text>
-<rect x="582.85" y="94.55" width="16.83" height="260.45" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="602.18" y="271.29" width="16.83" height="83.71" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="582.85" y="115.82" width="16.83" height="239.18" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="602.18" y="301.73" width="16.83" height="53.27" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
 <rect x="621.51" y="354.00" width="16.83" height="1.00" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
 <rect x="640.84" y="354.00" width="16.83" height="1.00" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
 <text x="713.75" y="369.00" font-size="8.8" fill="#0F172A" text-anchor="middle" font-weight="bold">1-Brier</text>
-<rect x="676.35" y="65.12" width="16.83" height="289.88" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="695.68" y="115.60" width="16.83" height="239.40" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="715.01" y="107.91" width="16.83" height="247.09" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="734.34" y="198.29" width="16.83" height="156.71" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="676.35" y="66.73" width="16.83" height="288.27" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="695.68" y="135.77" width="16.83" height="219.23" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="715.01" y="142.77" width="16.83" height="212.23" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="734.34" y="217.80" width="16.83" height="137.20" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
 <text x="807.25" y="369.00" font-size="8.8" fill="#0F172A" text-anchor="middle" font-weight="bold">1-ECE</text>
-<rect x="769.85" y="85.90" width="16.83" height="269.10" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="789.18" y="121.70" width="16.83" height="233.30" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="808.51" y="119.50" width="16.83" height="235.50" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
-<rect x="827.84" y="210.33" width="16.83" height="144.67" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="769.85" y="89.98" width="16.83" height="265.02" fill="#0F766E" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="789.18" y="158.36" width="16.83" height="196.64" fill="#2563EB" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="808.51" y="165.79" width="16.83" height="189.21" fill="#7C3AED" stroke="#1E293B" stroke-width="0.40"/>
+<rect x="827.84" y="237.80" width="16.83" height="117.20" fill="#DC2626" stroke="#1E293B" stroke-width="0.40"/>
 <rect x="480.00" y="392.00" width="10.00" height="10.00" fill="#0F766E"/>
 <text x="494.00" y="400.00" font-size="8.2" fill="#0F172A" text-anchor="start" font-weight="normal">MAVE-Q v4 Vet</text>
 <rect x="574.00" y="392.00" width="10.00" height="10.00" fill="#2563EB"/>

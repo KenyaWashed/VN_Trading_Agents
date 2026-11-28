@@ -25,6 +25,7 @@ build/
 *.out
 *.bbl
 *.blg
+*.synctex.gz
 
 # Local autonomous task queue & scratch state
 tasks*.txt

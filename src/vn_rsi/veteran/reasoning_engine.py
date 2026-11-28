@@ -28,6 +28,9 @@ PRIVATE_VETERAN_SYSTEM_PROMPT = (
     "Bạn là chuyên viên phân tích và quản lý danh mục cổ phiếu Việt Nam dày dặn thực chiến. "
     "Luôn đánh giá kỷ luật theo bối cảnh thị trường, dòng tiền, nền tảng tài chính đã công bố (PIT), "
     "và rủi ro thực tế tại thị trường Việt Nam (chu kỳ T+2.5, biên độ trần/sàn, thanh khoản, bẫy kéo xả). "
+    "NGUYÊN TẮC CHỐNG XU NỊNH (ANTI-SYCOPHANCY): Tuyệt đối không hùa theo tiền đề sai, câu hỏi dẫn dắt FOMO, "
+    "tin đồn chưa công bố, lời mời tất tay full margin, hay công thức rò rỉ dữ liệu tương lai / ảo giác miễn phí giao dịch; "
+    "phải phản bác thẳng thắn bằng số liệu định lượng và dứt khoát đề xuất ĐỨNG NGOÀI / REJECT khi biên lợi nhuận sau thuế T+2.5 không đủ bù rủi ro. "
     "Trả lời hoàn toàn bằng tiếng Việt tự nhiên, mạch lạc, súc tích, đi thẳng vào nhận định và hành động. "
     "Tuyệt đối không in phần suy nghĩ nội bộ (<think>), không trộn tiếng Anh thừa, "
     "và không tự giới thiệu hay nhắc đến số năm kinh nghiệm."
@@ -106,6 +109,9 @@ class MarketContextSnapshot:
     expected_mkt_5d: float = 0.008
     nearest_analogs: list[dict[str, Any]] = field(default_factory=list)
     user_question: str = ""
+    proposed_formula_expr: str = ""
+    estimated_roundtrip_cost_bps: float = 40.0
+    claimed_gross_edge_bps: float | None = None
     language: str = "vi"  # "vi" or "en"
 
 
@@ -128,6 +134,10 @@ class VeteranReasoningResponse:
     step5_executive_brief: str
     backend_used: str = "neuro_symbolic_veteran_core"
     slm_generated_commentary: str = ""
+    premise_refuted: bool = False
+    refuted_premise_types: list[str] = field(default_factory=list)
+    abstain_or_reject: bool = False
+    refutation_rationale: str = ""
 
     def render_natural_vietnamese(self) -> str:
         """Render fluent, natural Vietnamese analysis without English labels or meta-persona bragging."""
@@ -210,6 +220,10 @@ class VeteranReasoningResponse:
             "step5_executive_brief": self.step5_executive_brief,
             "backend_used": self.backend_used,
             "slm_generated_commentary": self.slm_generated_commentary,
+            "premise_refuted": self.premise_refuted,
+            "refuted_premise_types": self.refuted_premise_types,
+            "abstain_or_reject": self.abstain_or_reject,
+            "refutation_rationale": self.refutation_rationale,
         }
 
 
@@ -386,6 +400,156 @@ class VeteranReasoningEngine:
         if ctx.trauma_prob >= 0.45 and ctx.mkt_r5 >= 0.025:
             hidden_risks.append("dead_cat_bounce_macro_trap")
 
+        # --- Anti-Sycophancy & Adversarial Premise Refutation Audit (MAVE-Q v5) ---
+        q_low = f"{ctx.user_question} {ctx.proposed_formula_expr}".lower()
+        refuted_premises: list[str] = []
+        refutation_notes: list[str] = []
+
+        # 1. Look-ahead / future-leakage formula trap
+        lookahead_tokens = (
+            "shift(-",
+            "future_",
+            "next_close",
+            "next_day",
+            "tomorrow",
+            "t+1_close",
+            "biết trước",
+            "nhìn trước",
+            "dữ liệu tương lai",
+            "look-ahead",
+            "lookahead",
+        )
+        if any(tok in q_low for tok in lookahead_tokens):
+            refuted_premises.append("lookahead_formula_leakage")
+            causal_flags.append("LOOKAHEAD_FORMULA_LEAKAGE")
+            hidden_risks.append("lookahead_formula_leakage")
+            refutation_notes.append(
+                "BÁC BỎ tiền đề công thức nhìn trước tương lai (vi phạm nhân quả t+1/shift âm — không thể thực thi thực tế)."
+            )
+
+        # 2. Liquidity / friction mirage (ignoring VN T+2.5 + 0.1% sell tax + 0.15%x2 broker fee = ~40bps)
+        friction_tokens = (
+            "bỏ qua phí",
+            "miễn phí",
+            "0% phí",
+            "zero cost",
+            "ignore fee",
+            "lướt t0",
+            "đảo hàng mỗi ngày",
+            "scalp 1d",
+            "daily churn",
+        )
+        min_safe_edge = 1.5 * float(ctx.estimated_roundtrip_cost_bps)
+        is_fee_mirage = any(tok in q_low for tok in friction_tokens) or (
+            ctx.claimed_gross_edge_bps is not None and float(ctx.claimed_gross_edge_bps) < min_safe_edge
+        )
+        if is_fee_mirage:
+            refuted_premises.append("liquidity_friction_mirage")
+            causal_flags.append("LIQUIDITY_FRICTION_MIRAGE_1.5X")
+            hidden_risks.append("liquidity_friction_mirage")
+            edge_str = f"{ctx.claimed_gross_edge_bps:.0f}bps" if ctx.claimed_gross_edge_bps is not None else "mỏng"
+            refutation_notes.append(
+                f"BÁC BỎ ảo giác lợi nhuận sau phí: biên kỳ vọng ({edge_str}) không vượt nổi 1.5x chi phí khứ hồi ({min_safe_edge:.0f}bps gồm phí MG + thuế bán 0.1% + trượt giá T+2.5)."
+            )
+
+        # 3. Unannounced PIT rumor / insider-tip trap
+        rumor_tokens = (
+            "tin đồn",
+            "tin vịt",
+            "lái phím",
+            "rò rỉ bctc",
+            "chưa công bố",
+            "nội bộ báo",
+            "rumor",
+            "leaked earnings",
+            "insider tip",
+        )
+        if any(tok in q_low for tok in rumor_tokens) or (not ctx.pit_is_announced and bool(ctx.user_question.strip())):
+            refuted_premises.append("rumor_unannounced_pit_trap")
+            if "PIT_UNANNOUNCED_FUNDAMENTAL_LEAKAGE" not in causal_flags:
+                causal_flags.append("PIT_UNANNOUNCED_FUNDAMENTAL_LEAKAGE")
+            if "pit_announcement_lag_trap" not in hidden_risks:
+                hidden_risks.append("pit_announcement_lag_trap")
+            refutation_notes.append(
+                "BÁC BỎ giao dịch theo tin đồn / BCTC chưa công bố chính thức (rủi ro tin ra là bán và vi phạm kỷ luật Point-in-Time)."
+            )
+
+        # 4. FOMO all-in / full margin / ceiling chase leading prompt
+        fomo_tokens = (
+            "tất tay",
+            "full margin",
+            "all-in",
+            "all in",
+            "vay margin tối đa",
+            "đu trần",
+            "trần 3 phiên",
+            "trần liên tiếp",
+            "múc hết",
+            "mua đuổi ngay",
+            "chắc chắn x2",
+            "chắc thắng 100%",
+        )
+        if any(tok in q_low for tok in fomo_tokens):
+            if (
+                ctx.stock_ret3 >= 0.05
+                or ctx.dist_to_ceiling < 0.015
+                or ctx.turnover_shock_20d >= 1.75
+                or ctx.foreign_net_ratio_5d <= -0.04
+                or ctx.trauma_prob >= 0.40
+                or len(hidden_risks) > 0
+                or "full margin" in q_low
+                or "tất tay" in q_low
+                or "all-in" in q_low
+                or "all in" in q_low
+            ):
+                refuted_premises.append("fomo_full_margin_trap")
+                if "fomo_full_margin_trap" not in hidden_risks:
+                    hidden_risks.append("fomo_full_margin_trap")
+                refutation_notes.append(
+                    f"BÁC BỎ đề xuất tất tay/full margin (rủi ro kẹt T+2.5; biến động 3 phiên {ctx.stock_ret3:+.1%}, "
+                    f"đột biến KL {ctx.turnover_shock_20d:.2f}x, dòng tiền ngoại {ctx.foreign_net_ratio_5d:+.2%})."
+                )
+
+        # 5. Catching a falling knife / averaging down into floor-lock distress
+        knife_tokens = (
+            "bắt đáy",
+            "bình quân giá xuống",
+            "average down",
+            "sàn rẻ quá",
+            "giảm sàn mua mạnh",
+            "catch the dip",
+        )
+        if any(tok in q_low for tok in knife_tokens) and (
+            ctx.dist_to_floor < 0.025 or ctx.stock_ret20 <= -0.15 or ctx.mkt_dd60 <= -0.09
+        ):
+            refuted_premises.append("catch_falling_knife_trap")
+            if "t25_floor_lock_trap" not in hidden_risks:
+                hidden_risks.append("t25_floor_lock_trap")
+            refutation_notes.append(
+                f"BÁC BỎ đề xuất bắt đáy / bình quân giá xuống khi cổ phiếu cách sàn chỉ {ctx.dist_to_floor:.1%} và giảm 20 phiên {ctx.stock_ret20:+.1%}."
+            )
+
+        # 6. Overfitting / Occam complexity trap (backtest mining 500 features)
+        overfit_tokens = (
+            "500 chỉ báo",
+            "1000 tham số",
+            "sharpe 8",
+            "khớp 100% quá khứ",
+            "overfit",
+            "100 parameters",
+            "zero regularization",
+            "thêm thật nhiều biến",
+        )
+        if any(tok in q_low for tok in overfit_tokens):
+            refuted_premises.append("overfitting_complexity_trap")
+            hidden_risks.append("overfitting_complexity_trap")
+            refutation_notes.append(
+                "BÁC BỎ đề xuất nhồi tham số quá khớp (vi phạm Occam's Razor & Deflated Sharpe Ratio trên mẫu nhỏ)."
+            )
+
+        premise_refuted = len(refuted_premises) > 0
+        refutation_rationale = " ".join(refutation_notes)
+
         # --- Quantitative Alpha & Calibrated Win Probability (Logistic Shrinkage Model) ---
         # Ignore unannounced fundamentals strictly (zero PIT look-ahead!)
         eff_pit_z = ctx.pit_value_quality_z if ctx.pit_is_announced and ctx.pit_announcement_lag_days > 0 else 0.0
@@ -397,13 +561,22 @@ class VeteranReasoningEngine:
             + 0.35 * float(np.clip(ctx.mkt_r20 / 0.05, -2.0, 2.0))
             - 0.65 * float(len(hidden_risks))
             - 0.90 * trauma_score
+            - (1.10 if premise_refuted else 0.0)
         )
         # Well-calibrated logistic scaling for low Brier Score & low ECE without overconfident 0/1 extremes
         win_prob = float(1.0 / (1.0 + np.exp(-1.25 * alpha_logit)))
         win_prob = round(float(np.clip(win_prob, 0.03, 0.96)), 4)
 
         # --- Action & Sizing Decision ---
-        severe_traps = {"t25_floor_lock_trap", "distress_delisting_halt_risk", "ceiling_unfillable_chase_trap"}
+        severe_traps = {
+            "t25_floor_lock_trap",
+            "distress_delisting_halt_risk",
+            "ceiling_unfillable_chase_trap",
+            "lookahead_formula_leakage",
+            "liquidity_friction_mirage",
+            "fomo_full_margin_trap",
+            "overfitting_complexity_trap",
+        }
         has_severe_trap = any(r in severe_traps for r in hidden_risks)
 
         if regime in ("High_Vol_Liquidity_Crunch", "Bear_Crash") and (trauma_score >= 0.48 or ctx.mkt_dd60 <= -0.11):
@@ -411,7 +584,7 @@ class VeteranReasoningEngine:
             target_w = 0.0
             sl_pct = -0.05
             tp_pct = 0.08
-        elif has_severe_trap or len(hidden_risks) >= 2 or win_prob < 0.42:
+        elif premise_refuted or has_severe_trap or len(hidden_risks) >= 2 or win_prob < 0.42:
             action = "REDUCE_OR_AVOID"
             target_w = 0.0
             sl_pct = -0.05
@@ -431,6 +604,8 @@ class VeteranReasoningEngine:
             target_w = round(max(4.0, 10.0 * (1.0 - trauma_score)), 1)
             sl_pct = -0.055
             tp_pct = 0.09
+
+        abstain_or_reject = action in ("REDUCE_OR_AVOID", "CASH_SHIELD")
 
         analog_txt_vi = ""
         analog_txt_en = ""
@@ -471,9 +646,10 @@ class VeteranReasoningEngine:
                     f"Chưa nên mở mua mới {ctx.symbol} lúc này để tránh kẹt hàng T+2.5 nếu áp lực bán lan rộng; giữ tiền mặt chờ thanh khoản ổn định lại."
                 )
             elif action == "REDUCE_OR_AVOID":
+                ref_prefix = f"{refutation_rationale} " if premise_refuted else ""
                 s5 = (
-                    f"Nên đứng ngoài hoặc hạ tỷ trọng với {ctx.symbol} vì đang xuất hiện tín hiệu rủi ro bất lợi ({risk_desc}). "
-                    "Biên lợi nhuận kỳ vọng sau phí, thuế và độ trễ T+2.5 chưa bù đắp được rủi ro — nên bỏ qua thay vì mua đuổi."
+                    f"REJECT / ĐỨNG NGOÀI với {ctx.symbol}: {ref_prefix}Đang xuất hiện tín hiệu rủi ro bất lợi ({risk_desc}). "
+                    "Biên lợi nhuận kỳ vọng sau phí, thuế và độ trễ T+2.5 chưa bù đắp được rủi ro — tuyệt đối không mua đuổi."
                 )
             elif action in ("BUY_HIGH_CONVICTION", "BUY_MODERATE"):
                 s5 = (
@@ -535,4 +711,8 @@ class VeteranReasoningEngine:
             step5_executive_brief=s5,
             backend_used=backend,
             slm_generated_commentary=slm_commentary,
+            premise_refuted=premise_refuted,
+            refuted_premise_types=refuted_premises,
+            abstain_or_reject=abstain_or_reject,
+            refutation_rationale=refutation_rationale,
         )

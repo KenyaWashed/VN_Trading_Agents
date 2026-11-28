@@ -1,11 +1,21 @@
 from vn_rsi.models.ast_diffusion import ASTDiffusionConfig, DiscreteASTDiffusion
 from vn_rsi.models.ast_vocab import ASTVocab
 from vn_rsi.models.cloud_presets import (
+    MULTI_SLM_REGISTRY,
     PRESET_SPECS,
     VALID_PRESETS,
+    HardwareSafetyGuard,
     PresetArchitecture,
+    SLMFamilySpec,
     detect_cloud_compute,
     get_preset_spec,
+    get_slm_spec,
+    verify_sub1b_blueprint_zero_ram,
+)
+from vn_rsi.models.dca_backbone import (
+    BACKBONE_ZOO_FAMILIES,
+    DCAMicroLM,
+    QuantBackboneModel,
 )
 from vn_rsi.models.frontier_arena import (
     FrontierChallengerRunner,
@@ -30,13 +40,31 @@ from vn_rsi.models.maveq_v4_veteran import (
     MAVEQv4Result,
     VeteranCaseMemory,
 )
+from vn_rsi.models.maveq_v5_chronos import (
+    AdversarialHypothesisRefuter,
+    AsymBetaNTZController,
+    AsymBetaNTZParams,
+    ChronosKalmanHedge,
+    DCAMoSEHyperGate,
+    MAVEQv5Engine,
+    MAVEQv5Result,
+    RefutationVerdict,
+    SplitConformalDormantVeto,
+)
 from vn_rsi.models.modular_backend import ModularMicroRSIBackend
 
 __all__ = [
     "ASTDiffusionConfig",
     "ASTVocab",
+    "AdversarialHypothesisRefuter",
+    "AsymBetaNTZController",
+    "AsymBetaNTZParams",
+    "BACKBONE_ZOO_FAMILIES",
+    "ChronosKalmanHedge",
     "ControllerOutput",
     "ControllerParams",
+    "DCAMicroLM",
+    "DCAMoSEHyperGate",
     "DevilsAdvocatePreMortem",
     "DiscreteASTDiffusion",
     "FrontierChallengerRunner",
@@ -45,19 +73,29 @@ __all__ = [
     "FrontierCombatResult",
     "HRMConfig",
     "HRMReasoner",
+    "HardwareSafetyGuard",
     "HierarchicalRegimeConvictionController",
     "HoloHRMReasoner",
     "HoloMAVEQEngine",
     "HoloMAVEQResult",
     "MAVEQv4Engine",
     "MAVEQv4Result",
+    "MAVEQv5Engine",
+    "MAVEQv5Result",
+    "MULTI_SLM_REGISTRY",
     "ModularMicroRSIBackend",
     "OrthogonalRewardEngine",
     "PRESET_SPECS",
     "PresetArchitecture",
+    "QuantBackboneModel",
+    "RefutationVerdict",
+    "SLMFamilySpec",
+    "SplitConformalDormantVeto",
     "TopologicalTreeDiffusion",
     "VALID_PRESETS",
     "VeteranCaseMemory",
     "detect_cloud_compute",
     "get_preset_spec",
+    "get_slm_spec",
+    "verify_sub1b_blueprint_zero_ram",
 ]

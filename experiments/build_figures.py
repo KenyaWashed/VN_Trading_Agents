@@ -580,6 +580,262 @@ def build_fig4_ablation_and_veteran(ab_data: dict[str, Any], vet_data: dict[str,
     return [str(p_pdf), str(p_svg)]
 
 
+def build_fig5_v5_equity_drawdown(traj_v5: dict[str, Any], out_dir: Path) -> list[str]:
+    """Figure 5: MAVE-Q v5 Single-Shot Sealed Test Cumulative Wealth & Drawdown vs v4, Global SOTA, & VN-Index."""
+    st = traj_v5.get("sealed_test", {})
+    bm_d = st.get("benchmark_vnindex", {})
+    mdls = st.get("models", {})
+    dates = sorted(bm_d.keys())
+    if len(dates) < 5:
+        return []
+
+    def _wealth_dd(rdict: dict[str, float]) -> tuple[np.ndarray, np.ndarray]:
+        r = np.asarray([float(rdict.get(d, 0.0)) for d in dates], dtype=float)
+        w = np.cumprod(1.0 + r)
+        peak = np.maximum.accumulate(w)
+        dd = w / np.maximum(peak, 1e-8) - 1.0
+        return w, dd
+
+    series_spec = [
+        ("MAVE-Q v5 (Pruned, Ours)", mdls.get("MAVE-Q_v5", {}), "#0F766E", 2.4, False),
+        ("FinAgent", mdls.get("FinAgent", {}), "#2563EB", 1.5, False),
+        ("FinMem", mdls.get("FinMem", {}), "#7C3AED", 1.3, True),
+        ("MAVE-Q v4 (Legacy)", mdls.get("MAVE-Q_v4", {}), "#D97706", 1.4, True),
+        ("RD-Agent(Q)", mdls.get("RD-Agent(Q)", {}), "#EC4899", 1.2, True),
+        ("VN-Index Buy & Hold", bm_d, "#64748B", 1.4, True),
+    ]
+    curves = [(nm, *_wealth_dd(rd), col, lw, dash) for nm, rd, col, lw, dash in series_spec if rd]
+
+    cv = VectorCanvas(880.0, 480.0)
+    cv.text(440.0, 24.0, "Figure 5: MAVE-Q v5 Single-Shot Sealed Test Cumulative Wealth & Drawdown (VN T+2.5 Sandbox)", 12.5, "#0F172A", "middle", True)
+
+    x0, x1 = 64.0, 845.0
+    # Top panel: Wealth
+    wy0, wy1 = 48.0, 265.0
+    cv.rect(x0, wy0, x1 - x0, wy1 - wy0, fill="#F8FAFC", stroke="#94A3B8", stroke_width=0.9)
+    w_max = max(float(np.max(w)) for _, w, _, _, _, _ in curves) * 1.05
+    w_min = min(0.75, min(float(np.min(w)) for _, w, _, _, _, _ in curves) * 0.96)
+    for k in range(5):
+        yv = w_min + k * (w_max - w_min) / 4.0
+        yy = wy1 - (yv - w_min) / max(w_max - w_min, 1e-6) * (wy1 - wy0)
+        cv.line(x0, yy, x1, yy, "#E2E8F0", 0.7, dashed=True)
+        cv.text(x0 - 6.0, yy + 3.0, f"{yv:.2f}x", 8.2, "#334155", "end")
+    n_t = len(dates)
+    for _, w, _, col, lw, dash in curves:
+        pts = [
+            (x0 + (i / max(1, n_t - 1)) * (x1 - x0), wy1 - (float(w[i]) - w_min) / max(w_max - w_min, 1e-6) * (wy1 - wy0))
+            for i in range(n_t)
+        ]
+        cv.polyline(pts, col, lw, dash)
+
+    # Bottom panel: Drawdown
+    dy0, dy1 = 290.0, 412.0
+    cv.rect(x0, dy0, x1 - x0, dy1 - dy0, fill="#F8FAFC", stroke="#94A3B8", stroke_width=0.9)
+    dd_min = min(-0.42, min(float(np.min(dd)) for _, _, dd, _, _, _ in curves) * 1.05)
+    for k in range(4):
+        yv = k * dd_min / 3.0
+        yy = dy0 + (yv / dd_min) * (dy1 - dy0)
+        cv.line(x0, yy, x1, yy, "#E2E8F0", 0.7, dashed=True)
+        cv.text(x0 - 6.0, yy + 3.0, f"{yv*100:.0f}%", 8.2, "#334155", "end")
+    for _, _, dd, col, lw, dash in curves:
+        pts = [
+            (x0 + (i / max(1, n_t - 1)) * (x1 - x0), dy0 + (float(dd[i]) / dd_min) * (dy1 - dy0))
+            for i in range(n_t)
+        ]
+        cv.polyline(pts, col, lw, dash)
+
+    # Date ticks & legend
+    for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
+        idx = min(n_t - 1, int(frac * (n_t - 1)))
+        tx = x0 + frac * (x1 - x0)
+        cv.text(tx, dy1 + 14.0, dates[idx][:7], 8.2, "#334155", "middle")
+
+    lx = x0
+    for nm, _, _, col, lw, dash in curves:
+        cv.line(lx, 448.0, lx + 16.0, 448.0, col, lw, dash)
+        cv.text(lx + 20.0, 451.0, nm, 8.2, "#0F172A", "start", "MAVE-Q v5" in nm)
+        lx += 132.0
+
+    p_pdf, p_svg = cv.save(out_dir / "fig5_v5_equity_drawdown")
+    return [str(p_pdf), str(p_svg)]
+
+
+def build_fig6_v5_backbone_scaling_pruning(
+    dev_sum: dict[str, Any], pre_ab: dict[str, Any], post_ab: dict[str, Any], out_dir: Path
+) -> list[str]:
+    """Figure 6: (Left) 5-Backbone Zoo & Scaling Curve Occam BIC; (Right) Pre- vs Post-Pruning 8-Seed Ablations."""
+    cv = VectorCanvas(880.0, 430.0)
+    cv.text(440.0, 24.0, "Figure 6: (Left) 5-Family Backbone Zoo & Scaling BIC Audit | (Right) Ruthless 8-Seed Pruning Lift", 12.2, "#0F172A", "middle", True)
+
+    # Left panel: Zoo & Scaling BIC
+    lx0, lx1, ly0, ly1 = 56.0, 430.0, 58.0, 345.0
+    cv.rect(lx0, ly0, lx1 - lx0, ly1 - ly0, fill="#F8FAFC", stroke="#94A3B8", stroke_width=0.9)
+    cv.text((lx0 + lx1) / 2.0, 48.0, "Backbone Zoo & Scaling Curve (Occam BIC Score)", 9.3, "#0F172A", "middle", True)
+    c_map = {str(c["tag"]): c for c in dev_sum.get("candidates", [])}
+    l_items = [
+        ("zoo_preln_transformer_0p5m", "PreLN"),
+        ("zoo_mamba_ssm_0p5m", "Mamba"),
+        ("zoo_hyena_conv_0p5m", "Hyena"),
+        ("zoo_sparse_moe_0p5m", "SpMoE"),
+        ("zoo_dca_quantformer_0p5m", "DCA.5M"),
+        ("scale_dca_5m", "DCA 5M"),
+        ("scale_dca_12m", "DCA 12M"),
+        ("scale_dca_20m_local_safe", "DCA 20M"),
+    ]
+    y_max = 2.4
+    for k in range(5):
+        yv = k * 0.6
+        yy = ly1 - (yv / y_max) * (ly1 - ly0)
+        cv.line(lx0, yy, lx1, yy, "#E2E8F0", 0.7, dashed=True)
+        cv.text(lx0 - 5.0, yy + 3.0, f"{yv:.1f}", 8.0, "#334155", "end")
+    gw = (lx1 - lx0) / len(l_items)
+    for i, (tk, lbl) in enumerate(l_items):
+        c = c_map.get(tk, {})
+        bic = float(c.get("bic_adjusted_score", 0.0))
+        acc = str(c.get("verdict", "")) == "ACCEPTED"
+        bx = lx0 + i * gw + gw * 0.16
+        bw = gw * 0.68
+        hb = max(1.0, (bic / y_max) * (ly1 - ly0))
+        col = "#0F766E" if acc else "#DC2626"
+        cv.rect(bx, ly1 - hb, bw, hb, fill=col, stroke="#1E293B", stroke_width=0.5)
+        cv.text(bx + bw / 2.0, ly1 - hb - 4.0, f"{bic:.2f}", 7.4, "#0F172A", "middle")
+        cv.text(lx0 + (i + 0.5) * gw, ly1 + 14.0, lbl, 7.6, "#0F172A", "middle", acc)
+
+    cv.rect(lx0 + 18.0, 392.0, 11.0, 10.0, fill="#0F766E")
+    cv.text(lx0 + 34.0, 400.0, "ACCEPTED (Occam BIC)", 8.3, "#0F172A")
+    cv.rect(lx0 + 195.0, 392.0, 11.0, 10.0, fill="#DC2626")
+    cv.text(lx0 + 211.0, 400.0, "REJECTED / Falsified", 8.3, "#0F172A")
+
+    # Right panel: Pre- vs Post-Pruning 8-Seed Val Sharpe
+    rx0, rx1, ry0, ry1 = 482.0, 856.0, 58.0, 345.0
+    cv.rect(rx0, ry0, rx1 - rx0, ry1 - ry0, fill="#F8FAFC", stroke="#94A3B8", stroke_width=0.9)
+    cv.text((rx0 + rx1) / 2.0, 48.0, "Ruthless 8-Seed Pruning Audit (Val Sharpe ± SD)", 9.3, "#0F172A", "middle", True)
+    pre_agg = pre_ab.get("ablation_aggregate", {})
+    post_agg = post_ab.get("ablation_aggregate", {})
+    r_items = [
+        ("Pre-Prune", pre_agg.get("full_maveq_v5", {}), "#94A3B8"),
+        ("w/o Hedge", pre_agg.get("no_chronos_kalman_hedge", {}), "#F59E0B"),
+        ("w/o MoSE", pre_agg.get("no_mose_hypergate", {}), "#F59E0B"),
+        ("w/o Conf.", pre_agg.get("no_conformal_veto", {}), "#F59E0B"),
+        ("Lean v5", post_agg.get("full_maveq_v5", {}), "#0F766E"),
+        ("w/o DCA", post_agg.get("no_dca_backbone", {}), "#DC2626"),
+        ("w/o NTZ", post_agg.get("no_asym_beta_ntz", {}), "#DC2626"),
+    ]
+    y_max_r = 1.75
+    for k in range(5):
+        yv = k * 0.4
+        yy = ry1 - (yv / y_max_r) * (ry1 - ry0)
+        cv.line(rx0, yy, rx1, yy, "#E2E8F0", 0.7, dashed=True)
+        cv.text(rx0 - 5.0, yy + 3.0, f"{yv:.1f}", 8.0, "#334155", "end")
+    rgw = (rx1 - rx0) / len(r_items)
+    for i, (lbl, row, col) in enumerate(r_items):
+        sr = float(row.get("net_sharpe_mean", 0.0))
+        sd = float(row.get("net_sharpe_std", 0.0))
+        bx = rx0 + i * rgw + rgw * 0.16
+        bw = rgw * 0.68
+        hb = max(1.0, (sr / y_max_r) * (ry1 - ry0))
+        cv.rect(bx, ry1 - hb, bw, hb, fill=col, stroke="#1E293B", stroke_width=0.5)
+        y_hi = ry1 - min(y_max_r, sr + sd) / y_max_r * (ry1 - ry0)
+        y_lo = ry1 - max(0.0, sr - sd) / y_max_r * (ry1 - ry0)
+        cv.line(bx + bw / 2.0, y_hi, bx + bw / 2.0, y_lo, "#0F172A", 1.1)
+        cv.text(bx + bw / 2.0, y_hi - 4.0, f"{sr:.2f}", 7.5, "#0F172A", "middle")
+        cv.text(rx0 + (i + 0.5) * rgw, ry1 + 14.0, lbl, 7.6, "#0F172A", "middle", lbl == "Lean v5")
+
+    cv.rect(rx0 + 10.0, 392.0, 10.0, 10.0, fill="#F59E0B")
+    cv.text(rx0 + 24.0, 400.0, "Pruned (Drag)", 8.0, "#0F172A")
+    cv.rect(rx0 + 125.0, 392.0, 10.0, 10.0, fill="#0F766E")
+    cv.text(rx0 + 139.0, 400.0, "Pruned Lean v5", 8.0, "#0F172A")
+    cv.rect(rx0 + 245.0, 392.0, 10.0, 10.0, fill="#DC2626")
+    cv.text(rx0 + 259.0, 400.0, "Core Drop", 8.0, "#0F172A")
+
+    p_pdf, p_svg = cv.save(out_dir / "fig6_v5_backbone_scaling_pruning")
+    return [str(p_pdf), str(p_svg)]
+
+
+def build_fig7_v5_antisycophancy_ood(vet_data: dict[str, Any], post_ab: dict[str, Any], out_dir: Path) -> list[str]:
+    """Figure 7: (Left) 45-Scenario Anti-Sycophancy Resistance & FDR; (Right) 3-Market Zero-Retuning OOD."""
+    cv = VectorCanvas(880.0, 430.0)
+    cv.text(440.0, 24.0, "Figure 7: (Left) 45-Scenario Anti-Sycophancy Veteran Eval | (Right) 3-Market Zero-Retuning OOD Sharpe", 12.2, "#0F172A", "middle", True)
+
+    # Left panel: Anti-Sycophancy & 1-FDR
+    lx0, lx1, ly0, ly1 = 56.0, 430.0, 58.0, 345.0
+    cv.rect(lx0, ly0, lx1 - lx0, ly1 - ly0, fill="#F8FAFC", stroke="#94A3B8", stroke_width=0.9)
+    cv.text((lx0 + lx1) / 2.0, 48.0, "45 Scenarios / 22 Adversarial Traps (0-100%)", 9.3, "#0F172A", "middle", True)
+    ss = vet_data.get("benchmark", {}).get("system_scores", {})
+    vsys = [
+        ("MAVE-Q_v5_AntiSycophancy_Veteran", "v5 Vet", "#0F766E"),
+        ("Generic_Rule_Analyst", "Generic", "#2563EB"),
+        ("Naive_FOMO_Agent", "FOMO", "#F59E0B"),
+        ("Sycophantic_YesMan_LLM", "YesMan", "#DC2626"),
+    ]
+    ms = [
+        ("Acc%", lambda d: float(d.get("decision_accuracy_pct", 0.0))),
+        ("SycRes%", lambda d: float(d.get("sycophancy_resistance_rate_pct", 0.0))),
+        ("100-FDR%", lambda d: max(0.0, 100.0 - float(d.get("false_discovery_rate_pct", 100.0)))),
+        ("RiskF1%", lambda d: 100.0 * float(d.get("hidden_risk_f1", 0.0))),
+    ]
+    for k in range(6):
+        yv = k * 20.0
+        yy = ly1 - (yv / 100.0) * (ly1 - ly0)
+        cv.line(lx0, yy, lx1, yy, "#E2E8F0", 0.7, dashed=True)
+        cv.text(lx0 - 5.0, yy + 3.0, f"{yv:.0f}%", 8.0, "#334155", "end")
+    lgw = (lx1 - lx0) / len(ms)
+    lbw = lgw * 0.19
+    for mi, (mlbl, fn) in enumerate(ms):
+        cv.text(lx0 + (mi + 0.5) * lgw, ly1 + 14.0, mlbl, 8.3, "#0F172A", "middle", True)
+        gx = lx0 + mi * lgw + lgw * 0.08
+        for si, (sk, _, col) in enumerate(vsys):
+            val = fn(ss.get(sk, {}))
+            hb = max(1.0, (val / 100.0) * (ly1 - ly0))
+            cv.rect(gx + si * (lbw + 2.0), ly1 - hb, lbw, hb, fill=col, stroke="#1E293B", stroke_width=0.4)
+    llx = lx0
+    for _, slbl, col in vsys:
+        cv.rect(llx, 392.0, 10.0, 10.0, fill=col)
+        cv.text(llx + 14.0, 400.0, slbl, 8.2, "#0F172A")
+        llx += 92.0
+
+    # Right panel: 3-Market OOD Net Sharpe
+    rx0, rx1, ry0, ry1 = 486.0, 856.0, 58.0, 345.0
+    cv.rect(rx0, ry0, rx1 - rx0, ry1 - ry0, fill="#F8FAFC", stroke="#94A3B8", stroke_width=0.9)
+    cv.text((rx0 + rx1) / 2.0, 48.0, "Zero-Retuning 3-Market OOD Net Sharpe", 9.3, "#0F172A", "middle", True)
+    ood = post_ab.get("ood_generalization", {})
+    mkts = [("VN100_10d", "VN100-10d"), ("US_LIQUID_T1", "US T+1"), ("CSI_EMERGING_T1", "CSI T+1")]
+    osys = [
+        ("MAVE-Q_v5", "MAVE-Q v5", "#0F766E"),
+        ("MAVE-Q_v4", "MAVE-Q v4", "#D97706"),
+        ("RD-Agent(Q)", "RD-Agent", "#2563EB"),
+        ("vnindex_buy_hold", "Buy&Hold", "#64748B"),
+    ]
+    y_min_o, y_max_o = -1.0, 1.8
+    def _yo(v: float) -> float:
+        return ry1 - (max(y_min_o, min(y_max_o, v)) - y_min_o) / (y_max_o - y_min_o) * (ry1 - ry0)
+    y_zero = _yo(0.0)
+    for yv in (-0.8, -0.4, 0.0, 0.4, 0.8, 1.2, 1.6):
+        yy = _yo(yv)
+        cv.line(rx0, yy, rx1, yy, "#94A3B8" if yv == 0.0 else "#E2E8F0", 1.0 if yv == 0.0 else 0.7, dashed=(yv != 0.0))
+        cv.text(rx0 - 5.0, yy + 3.0, f"{yv:+.1f}", 7.8, "#334155", "end")
+    mgw = (rx1 - rx0) / len(mkts)
+    mbw = mgw * 0.18
+    for mi, (mk, mlbl) in enumerate(mkts):
+        cv.text(rx0 + (mi + 0.5) * mgw, ry1 + 14.0, mlbl, 8.5, "#0F172A", "middle", True)
+        gx = rx0 + mi * mgw + mgw * 0.10
+        mdls = ood.get(mk, {}).get("models", {})
+        for si, (sk, _, col) in enumerate(osys):
+            val = float(mdls.get(sk, {}).get("net_sharpe", 0.0))
+            yv = _yo(val)
+            top = min(yv, y_zero)
+            hb = max(1.0, abs(yv - y_zero))
+            cv.rect(gx + si * (mbw + 2.5), top, mbw, hb, fill=col, stroke="#1E293B", stroke_width=0.4)
+    rlx = rx0
+    for _, slbl, col in osys:
+        cv.rect(rlx, 392.0, 10.0, 10.0, fill=col)
+        cv.text(rlx + 14.0, 400.0, slbl, 8.2, "#0F172A")
+        rlx += 92.0
+
+    p_pdf, p_svg = cv.save(out_dir / "fig7_v5_antisycophancy_ood")
+    return [str(p_pdf), str(p_svg)]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build publication-grade vector PDF & SVG figures from logged runs")
     parser.add_argument("--logs-dir", default="logs")
@@ -600,6 +856,27 @@ def main() -> None:
     written.extend(build_fig2_pareto_sharpe_dsr(runs, out_dir))
     written.extend(build_fig3_regime_breakdown(runs, out_dir))
     written.extend(build_fig4_ablation_and_veteran(ab_data, vet_data, out_dir))
+
+    # MAVE-Q v5 Dual-Backend Vector PDF + SVG Figures
+    v5_traj_p = logs_dir / "v5_final_arena_trajectories.json"
+    v5_dev_p = logs_dir / "v5_dev_arena_summary.json"
+    v5_pre_p = logs_dir / "v5_pre_pruning_ablation.json"
+    v5_post_p = logs_dir / "v5_ablation_and_ood.json"
+    if v5_traj_p.exists():
+        written.extend(build_fig5_v5_equity_drawdown(json.loads(v5_traj_p.read_text(encoding="utf-8")), out_dir))
+    if v5_dev_p.exists() and v5_pre_p.exists() and v5_post_p.exists():
+        written.extend(
+            build_fig6_v5_backbone_scaling_pruning(
+                json.loads(v5_dev_p.read_text(encoding="utf-8")),
+                json.loads(v5_pre_p.read_text(encoding="utf-8")),
+                json.loads(v5_post_p.read_text(encoding="utf-8")),
+                out_dir,
+            )
+        )
+    if v5_post_p.exists():
+        written.extend(
+            build_fig7_v5_antisycophancy_ood(vet_data, json.loads(v5_post_p.read_text(encoding="utf-8")), out_dir)
+        )
 
     print(json.dumps({"status": "OK", "figures_written": written}, indent=2))
 

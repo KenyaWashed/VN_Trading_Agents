@@ -4,6 +4,7 @@ from vn_rsi.veteran.expert_benchmark import (
     ExpertBenchmarkReport,
     VeteranScenario,
     build_30_plus_veteran_scenarios,
+    build_45_anti_sycophancy_scenarios,
     compute_brier_and_ece,
     evaluate_veteran_benchmark,
 )
@@ -32,6 +33,7 @@ __all__ = [
     "VeteranReasoningResponse",
     "VeteranScenario",
     "build_30_plus_veteran_scenarios",
+    "build_45_anti_sycophancy_scenarios",
     "build_veteran_model_card",
     "build_veteran_sft_and_dpo_datasets",
     "compute_brier_and_ece",

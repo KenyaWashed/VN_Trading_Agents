@@ -154,6 +154,8 @@ def main() -> None:
         "Model / System &",
         "Variant / OOD Benchmark &",
         "Reasoning System &",
+        "Falsified Hypothesis ID &",
+        "Candidate Architecture &",
     )
     tables_concat = ""
     for t_file in sorted((paper_dir / "tables").glob("*.tex")):
